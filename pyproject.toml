@@ -1,10 +1,12 @@
 [project]
 name = "pessoal"
 version = "0.1.0"
-description = "Add your description here"
+description = "Projeto sem nome definido para extração de dados de arquivos pessoais, categorização e organização."
 requires-python = ">=3.13"
 dependencies = [
     "fastparquet>=2024.11.0",
+    "ipykernel>=6.30.1",
+    "jpype1>=1.6.0",
     "pandas>=2.3.3",
     "pyarrow>=21.0.0",
     "pypdf>=6.1.1",
