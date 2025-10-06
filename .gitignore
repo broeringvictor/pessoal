@@ -1,35 +1,7 @@
 core/assets/
+!core/assets/__init__.py
 
-.idea/**/workspace.xml
-.idea/**/tasks.xml
-.idea/**/usage.statistics.xml
-.idea/**/dictionaries
-.idea/**/shelf
-.idea/**/aws.xml
-.idea/**/contentModel.xml
-.idea/**/dataSources/
-.idea/**/dataSources.ids
-.idea/**/dataSources.local.xml
-.idea/**/sqlDataSources.xml
-.idea/**/dynamic.xml
-.idea/**/uiDesigner.xml
-.idea/**/dbnavigator.xml
-.idea/**/gradle.xml
-.idea/**/libraries
-.idea/**/mongoSettings.xml
-.idea/**/sonarlint/
-.idea/**/sonarIssues.xml
-.idea/**/markdown-navigator.xml
-.idea/**/markdown-navigator-enh.xml
-.idea/**/markdown-navigator/
-.idea/**/azureSettings.xml
-.idea/httpRequests
-.idea/caches/build_file_checksums.ser
-.idea/$CACHE_FILE$
-*.iws
-out/
-.idea_modules/
-atlassian-ide-plugin.xml
+.idea/
 
 __pycache__/
 *.py[cod]
