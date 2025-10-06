@@ -34,15 +34,7 @@ class ParametrosExtracao:
 
 
 class CelescExtrator:
-    """
-    Extrator da tabela principal das faturas CELESC.
-
-    Contrato:
-    - Entrada: caminho do PDF e parâmetros de extração (opcional)
-    - Saída: DataFrame com colunas normalizadas, incluindo
-      ["Data", "Documento", "Número-Referência e Unidade-Consumidora", "Referência", "Vencimento", "Valor Total"]
-
-    """
+    """Extrai a tabela principal das faturas CELESC e normaliza colunas essenciais."""
 
     def __init__(
         self,
@@ -69,15 +61,15 @@ class CelescExtrator:
     # --- Orquestração -----------------------------------------------------
     def _extrair(self) -> pd.DataFrame:
         tabelas = self.wrapper.carregar_tabelas_pdf(self._caminho_pdf)
-        alvo = self.wrapper.localizar_tabela_com_palavras_chave(
+        tabela_alvo = self.wrapper.localizar_tabela_com_palavras_chave(
             tabelas,
             self.params.palavras_chave,
             normalizar=True,
             exigir_todas=True,
         )
-        if alvo is None:
+        if tabela_alvo is None:
             raise ValueError("Tabela com as palavras-chave não foi encontrada no PDF fornecido.")
-        return self._montar_tabela_celesc(alvo, self.params)
+        return self._montar_tabela_celesc(tabela_alvo, self.params)
 
     # --- Passos do domínio ------------------------------------------------
     def _montar_tabela_celesc(
@@ -91,49 +83,49 @@ class CelescExtrator:
             or params.indice_cabecalho is None
             or params.primeira_linha_dados is None
         ):
-            idx_header, idx_data = self._detectar_indices_cabecalho_e_dados(tabela_bruta)
+            indice_cabecalho, indice_primeira_linha = self._detectar_indices_cabecalho_e_dados(tabela_bruta)
         else:
-            idx_header = int(params.indice_cabecalho)
-            idx_data = int(params.primeira_linha_dados)
+            indice_cabecalho = int(params.indice_cabecalho)
+            indice_primeira_linha = int(params.primeira_linha_dados)
 
-        com_cabecalho = self._aplicar_cabecalho_da_linha(tabela_bruta, idx_header)
-        dados = self._selecionar_linhas_de_dados(com_cabecalho, idx_data)
+        com_cabecalho = self._aplicar_cabecalho_da_linha(tabela_bruta, indice_cabecalho)
+        dados = self._selecionar_linhas_de_dados(com_cabecalho, indice_primeira_linha)
 
         # Encontrar a coluna composta dinamicamente
-        col_composta, cols_consumidas = self._encontrar_coluna_composta(dados)
-        esquerda = self._decompor_coluna_composta_em_campos(col_composta)
+        coluna_composta_normalizada, indices_colunas_consumidas = self._encontrar_coluna_composta(dados)
+        bloco_esquerda = self._decompor_coluna_composta_em_campos(coluna_composta_normalizada)
 
         # Preservar demais colunas não consumidas
-        restantes = [i for i in range(dados.shape[1]) if i not in cols_consumidas]
-        direita = dados.iloc[:, restantes].copy()
+        colunas_restantes = [i for i in range(dados.shape[1]) if i not in indices_colunas_consumidas]
+        bloco_direita = dados.iloc[:, colunas_restantes].copy()
 
-        final = pd.concat([esquerda, direita], axis=1)
+        tabela_final = pd.concat([bloco_esquerda, bloco_direita], axis=1)
 
         # Limpezas
-        if "Data" in final.columns:
-            final = final[~final["Data"].isna()].reset_index(drop=True)
+        if "Data" in tabela_final.columns:
+            tabela_final = tabela_final[~tabela_final["Data"].isna()].reset_index(drop=True)
 
-        final = self._normalizar_nomes_colunas_alvo(final)
-        final = self._renomear_total_para_valor_total(final)
-        return final
+        tabela_final = self._normalizar_nomes_colunas_alvo(tabela_final)
+        tabela_final = self._renomear_total_para_valor_total(tabela_final)
+        return tabela_final
 
     # --- Utilitários internos --------------------------------------------
     @staticmethod
-    def _sem_acentos_minusculo(s: str) -> str:
-        s = unicodedata.normalize("NFKD", s)
-        s = "".join(ch for ch in s if not unicodedata.combining(ch))
-        return s.lower()
+    def _sem_acentos_minusculo(texto: str) -> str:
+        texto_normalizado = unicodedata.normalize("NFKD", texto)
+        texto_sem_acentos = "".join(ch for ch in texto_normalizado if not unicodedata.combining(ch))
+        return texto_sem_acentos.lower()
 
     def _detectar_indices_cabecalho_e_dados(
         self, df: pd.DataFrame, fallback: Tuple[int, int] = (4, 5)
     ) -> Tuple[int, int]:
-        termos = ["data", "documento", "numero", "referencia"]
+        termos_cabecalho = ["data", "documento", "numero", "referencia"]
         try:
-            for i, (_, linha) in enumerate(df.iterrows()):
-                txt = self._sem_acentos_minusculo(" ".join(linha.astype(str)))
-                if all(t in txt for t in termos):
-                    if i + 1 < len(df):
-                        return i, i + 1
+            for indice, (_, linha) in enumerate(df.iterrows()):
+                linha_texto_normalizado = self._sem_acentos_minusculo(" ".join(linha.astype(str)))
+                if all(termo in linha_texto_normalizado for termo in termos_cabecalho):
+                    if indice + 1 < len(df):
+                        return indice, indice + 1
                     break
         except Exception:
             pass
@@ -150,98 +142,98 @@ class CelescExtrator:
         return df.iloc[indice_inicio:].reset_index(drop=True).copy()
 
     def _encontrar_coluna_composta(self, dados: pd.DataFrame) -> Tuple[pd.Series, List[int]]:
-        padrao = re.compile(
+        padrao_coluna_composta = re.compile(
             r"^(?P<Data>\d{2}/\d{2}/\d{4})\s+(?P<Documento>\d{4,}-\d+)\s+(?P<N1>\d+)\s+(?P<N2>\d+)$"
         )
 
-        def score(series: pd.Series) -> int:
-            s = series.astype(str).str.replace(r"\s+", " ", regex=True).str.strip()
-            m = s.str.match(padrao)
-            return int(m.fillna(False).sum())
+        def pontuacao_coluna(coluna: pd.Series) -> int:
+            texto_normalizado = coluna.astype(str).str.replace(r"\s+", " ", regex=True).str.strip()
+            mascara_casamento = texto_normalizado.str.match(padrao_coluna_composta)
+            return int(mascara_casamento.fillna(False).sum())
 
-        ncols = dados.shape[1]
+        quantidade_colunas = dados.shape[1]
         candidatas: list[Tuple[pd.Series, List[int], int]] = []
 
         # Testa colunas individuais
-        for i in range(ncols):
-            serie = dados.iloc[:, i]
-            candidatas.append((serie, [i], score(serie)))
+        for indice_coluna in range(quantidade_colunas):
+            serie_coluna = dados.iloc[:, indice_coluna]
+            candidatas.append((serie_coluna, [indice_coluna], pontuacao_coluna(serie_coluna)))
 
         # Testa combinações col0+col1, col0+col1+col2 (mais comuns)
-        if ncols >= 2:
-            s01 = dados.iloc[:, 0].astype(str) + " " + dados.iloc[:, 1].astype(str)
-            candidatas.append((s01, [0, 1], score(s01)))
-        if ncols >= 3:
-            s012 = (
+        if quantidade_colunas >= 2:
+            concat_01 = dados.iloc[:, 0].astype(str) + " " + dados.iloc[:, 1].astype(str)
+            candidatas.append((concat_01, [0, 1], pontuacao_coluna(concat_01)))
+        if quantidade_colunas >= 3:
+            concat_012 = (
                 dados.iloc[:, 0].astype(str)
                 + " "
                 + dados.iloc[:, 1].astype(str)
                 + " "
                 + dados.iloc[:, 2].astype(str)
             )
-            candidatas.append((s012, [0, 1, 2], score(s012)))
+            candidatas.append((concat_012, [0, 1, 2], pontuacao_coluna(concat_012)))
 
         # Escolhe a de maior score; em empate, preferir a que consome menos colunas
-        candidatas.sort(key=lambda t: (t[2], -len(t[1])), reverse=True)
-        melhor = candidatas[0]
+        candidatas.sort(key=lambda tpl: (tpl[2], -len(tpl[1])), reverse=True)
+        melhor_candidata = candidatas[0]
 
         # Normaliza a série escolhida
-        serie_melhor = (
-            melhor[0].astype(str).str.replace(r"\s+", " ", regex=True).str.strip()
+        serie_escolhida_normalizada = (
+            melhor_candidata[0].astype(str).str.replace(r"\s+", " ", regex=True).str.strip()
         )
-        return serie_melhor, melhor[1]
+        return serie_escolhida_normalizada, melhor_candidata[1]
 
     @staticmethod
     def _decompor_coluna_composta_em_campos(coluna: pd.Series) -> pd.DataFrame:
-        serie = coluna.astype(str).str.replace(r"\s+", " ", regex=True).str.strip()
-        padrao = re.compile(
+        texto_normalizado = coluna.astype(str).str.replace(r"\s+", " ", regex=True).str.strip()
+        padrao_coluna_composta = re.compile(
             r"^(?P<Data>\d{2}/\d{2}/\d{4})\s+(?P<Documento>\d{4,}-\d+)\s+(?P<N1>\d+)\s+(?P<N2>\d+)$"
         )
-        extraido = serie.str.extract(padrao)
+        extraido = texto_normalizado.str.extract(padrao_coluna_composta)
 
         if extraido.isna().all(axis=None):
-            partes = serie.str.split(r"\s+", n=3, expand=True)
+            partes = texto_normalizado.str.split(r"\s+", n=3, expand=True)
             partes.columns = ["Data", "Documento", "N1N2_1", "N1N2_2"]
             partes["N1"] = partes["N1N2_1"].fillna("")
             partes["N2"] = partes["N1N2_2"].fillna("")
             extraido = partes[["Data", "Documento", "N1", "N2"]]
 
-        num_ref = (extraido["N1"].fillna("") + " " + extraido["N2"].fillna("")).str.strip()
+        numero_referencia = (extraido["N1"].fillna("") + " " + extraido["N2"].fillna("")).str.strip()
         return pd.DataFrame(
             {
                 "Data": extraido["Data"],
                 "Documento": extraido["Documento"],
-                "Número-Referência e Unidade-Consumidora": num_ref,
+                "Número-Referência e Unidade-Consumidora": numero_referencia,
             }
         )
 
     def _normalizar_nomes_colunas_alvo(self, df: pd.DataFrame) -> pd.DataFrame:
         out = df.copy()
-        mapa_norm: dict[str, str] = {}
-        for c in out.columns:
-            c_str = str(c)
-            c_norm = self._sem_acentos_minusculo(c_str)
+        mapa_renomeio: dict[str, str] = {}
+        for coluna in out.columns:
+            nome_original = str(coluna)
+            nome_normalizado = self._sem_acentos_minusculo(nome_original)
             # remove tudo que não é letra para comparação exata
-            c_key = re.sub(r"[^a-z]", "", c_norm)
-            if c_key == "referencia" and c_str != "Referência":
-                mapa_norm[c] = "Referência"
-            elif c_key == "vencimento" and c_str != "Vencimento":
-                mapa_norm[c] = "Vencimento"
-            elif c_key in ("totalapagar", "totalapagarrs") and c_str != "Total a Pagar (R$)":
-                mapa_norm[c] = "Total a Pagar (R$)"
-        if mapa_norm:
-            out = out.rename(columns=mapa_norm)
+            chave_comparacao = re.sub(r"[^a-z]", "", nome_normalizado)
+            if chave_comparacao == "referencia" and nome_original != "Referência":
+                mapa_renomeio[coluna] = "Referência"
+            elif chave_comparacao == "vencimento" and nome_original != "Vencimento":
+                mapa_renomeio[coluna] = "Vencimento"
+            elif chave_comparacao in ("totalapagar", "totalapagarrs") and nome_original != "Total a Pagar (R$)":
+                mapa_renomeio[coluna] = "Total a Pagar (R$)"
+        if mapa_renomeio:
+            out = out.rename(columns=mapa_renomeio)
         return out
 
     @staticmethod
     def _renomear_total_para_valor_total(df: pd.DataFrame) -> pd.DataFrame:
         out = df.copy()
-        rename_map: dict[str, str] = {}
-        for c in out.columns:
-            if isinstance(c, str) and "Total a Pagar" in c:
-                rename_map[c] = "Valor Total"
-        if rename_map:
-            out = out.rename(columns=rename_map)
+        mapa_renomeio_total: dict[str, str] = {}
+        for coluna in out.columns:
+            if isinstance(coluna, str) and "Total a Pagar" in coluna:
+                mapa_renomeio_total[coluna] = "Valor Total"
+        if mapa_renomeio_total:
+            out = out.rename(columns=mapa_renomeio_total)
         if "Valor Total" in out.columns:
             out["Valor Total"] = (
                 out["Valor Total"].astype(str).str.replace("R$", "", regex=False).str.strip()
@@ -260,10 +252,7 @@ def extrair_tabela_celesc(
 
 
 def obter_tabela_celesc(caminho_pdf: str) -> pd.DataFrame:
-    """
-    Uso simples: informe o caminho do PDF e receba a tabela final pronta.
-    Não imprime, não salva CSV, apenas retorna o DataFrame para reuso.
-    """
+    """Retorna a tabela CELESC do PDF informado."""
     return extrair_tabela_celesc(caminho_pdf)
 
 
@@ -293,12 +282,7 @@ def run_extraction(
     imprimir_resumo: bool = True,
     validar: bool = True,
 ) -> pd.DataFrame:
-    """
-    API de alto nível para extração:
-    - extrai a tabela Celesc do PDF
-    - opcionalmente imprime resumo e salva CSV
-    - valida colunas essenciais, se solicitado
-    """
+    """Extrai, valida e opcionalmente imprime/salva o resultado em CSV."""
     df = extrair_tabela_celesc(pdf_path)
 
     if validar:
@@ -312,11 +296,11 @@ def run_extraction(
             print(df.head(5))
 
     if out_csv:
-        from pathlib import Path as _Path
-        p = _Path(out_csv)
-        p.parent.mkdir(parents=True, exist_ok=True)
-        df.to_csv(p, index=False, encoding="utf-8")
-        print(f"CSV salvo em: {p}")
+        from pathlib import Path
+        caminho_saida = Path(out_csv)
+        caminho_saida.parent.mkdir(parents=True, exist_ok=True)
+        df.to_csv(caminho_saida, index=False, encoding="utf-8")
+        print(f"CSV salvo em: {caminho_saida}")
 
     return df
 
@@ -346,6 +330,3 @@ if __name__ == "__main__":
             except Exception as e:
                 print(f"ERRO ao processar {pdf_path.name}: {e}")
                 continue
-    
-    # Executa a extração com um resumo impresso; sem salvar CSV por padrão
-    #

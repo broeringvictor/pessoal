@@ -14,13 +14,7 @@ class DataFrameWrapper:
     lattice: bool = False
 
     def carregar_tabelas_pdf(self, file_path: Optional[str] = None) -> List[pd.DataFrame]:
-        """
-        Carrega todas as tabelas de um PDF usando as opções configuradas.
-        Args:
-            file_path: caminho do PDF; se None, usa self.file_path.
-        Returns:
-            Lista de DataFrames encontrados.
-        """
+        """Carrega todas as tabelas de um PDF conforme as opções configuradas."""
         path = file_path or self.file_path
         if not path:
             raise ValueError("Nenhum caminho de PDF foi fornecido.")
@@ -50,33 +44,32 @@ class DataFrameWrapper:
         normalizar: bool = True,
         exigir_todas: bool = True,
     ) -> Optional[pd.DataFrame]:
-        """
-        Localiza a primeira tabela cujo texto de alguma linha contenha as palavras-chave.
-        Args:
-            tabelas: iterável de DataFrames extraídos.
-            palavras_chave: termos a procurar.
-            normalizar: se True, ignora acentos e caixa (minúsculas).
-            exigir_todas: se True, exige que todas as palavras apareçam; caso contrário, qualquer uma.
-        """
-        chaves = list(palavras_chave)
+        """Retorna a primeira tabela cujo texto contenha as palavras-chave."""
+        lista_palavras = list(palavras_chave)
         if normalizar:
-            chaves = [self._sem_acentos_minusculo(p) for p in chaves]
+            lista_palavras = [self._sem_acentos_minusculo(palavra) for palavra in lista_palavras]
 
         for tabela in tabelas:
             for _, linha in tabela.iterrows():
-                linha_txt = " ".join(linha.astype(str))
+                linha_texto = " ".join(linha.astype(str))
                 if normalizar:
-                    linha_txt = self._sem_acentos_minusculo(linha_txt)
-                cond = all(p in linha_txt for p in chaves) if exigir_todas else any(p in linha_txt for p in chaves)
-                if cond:
+                    linha_texto = self._sem_acentos_minusculo(linha_texto)
+                condicao_atendida = (
+                    all(palavra in linha_texto for palavra in lista_palavras)
+                    if exigir_todas
+                    else any(palavra in linha_texto for palavra in lista_palavras)
+                )
+                if condicao_atendida:
                     return tabela
         return None
 
     @staticmethod
-    def _sem_acentos_minusculo(s: str) -> str:
-        s = unicodedata.normalize("NFKD", s)
-        s = "".join(ch for ch in s if not unicodedata.combining(ch))
-        return s.lower()
+    def _sem_acentos_minusculo(texto: str) -> str:
+        texto_normalizado = unicodedata.normalize("NFKD", texto)
+        texto_sem_acentos = "".join(
+            caractere for caractere in texto_normalizado if not unicodedata.combining(caractere)
+        )
+        return texto_sem_acentos.lower()
 
 if __name__ == "__main__":
     try:

@@ -34,18 +34,7 @@ PADRAO_REFERENCIA_MM_YYYY = r"(\b\d{2}/\d{4}\b)"
 
 @dataclass(init=False)
 class SamaeExtrator:
-    """
-    Extrator de Valor Atual em faturas do SAMAE.
-
-    Contrato (entrada/saída):
-    - Entrada: caminho do PDF (caminho_pdf) e parâmetros de leitura de tabelas.
-    - Saída: DataFrame com colunas ["Referência", "Valor (R$)"] contendo a linha "(Atual)".
-
-    Princípios aplicados:
-    - SRP: métodos privados focados em ações pequenas e coesas (detectar coluna, selecionar linha, extrair valor)
-    - OCP: heurísticas organizadas para facilitar extensão sem modificar fluxo principal
-    - DIP: depende de uma "porta" (TabelaPdfExtratora); DataFrameWrapper é apenas a implementação padrão
-    """
+    """Extrai a linha atual de faturas SAMAE e retorna Referência e Valor (R$)."""
 
     wrapper: TabelaPdfExtratora
     tabela: pd.DataFrame
@@ -104,61 +93,65 @@ class SamaeExtrator:
     # --- Heurísticas/coadjuvantes -----------------------------------------
     def _detectar_coluna_valor(self, df: pd.DataFrame) -> Optional[Hashable]:
         """Tenta encontrar a coluna de valor pelo cabeçalho e, em fallback, pelo conteúdo."""
-        for c in df.columns:
-            key = self._chave_normalizada(str(c))
-            if key in ("valorrs", "valorr", "valor") or ("valor" in key and ("rs" in key or "r" in key)):
-                return c
+        for coluna_rotulo in df.columns:
+            rotulo_normalizado = self._chave_normalizada(str(coluna_rotulo))
+            if rotulo_normalizado in ("valorrs", "valorr", "valor") or (
+                "valor" in rotulo_normalizado and ("rs" in rotulo_normalizado or "r" in rotulo_normalizado)
+            ):
+                return coluna_rotulo
         # Conteúdo da última coluna como fallback
-        ultima: Hashable = cast(Hashable, df.columns[-1])
-        amostra = df[ultima].astype(str).str.contains(PADRAO_MOEDA, regex=True, na=False).mean()
-        if amostra > 0.3:
-            return ultima
+        ultima_coluna: Hashable = cast(Hashable, df.columns[-1])
+        proporcao_padrao_moeda = (
+            df[ultima_coluna].astype(str).str.contains(PADRAO_MOEDA, regex=True, na=False).mean()
+        )
+        if proporcao_padrao_moeda > 0.3:
+            return ultima_coluna
         return None
 
     def _selecionar_linha_atual(self, df: pd.DataFrame) -> pd.Series:
         """Seleciona a linha marcada como (Atual) ou, em falta, a mais recente por mm/yyyy."""
-        primeira_col: Hashable = cast(Hashable, df.columns[0])
-        primeira_serie: pd.Series = df[primeira_col].astype(str).fillna("")
+        primeira_coluna: Hashable = cast(Hashable, df.columns[0])
+        primeira_serie: pd.Series = df[primeira_coluna].astype(str).fillna("")
 
         # Filtra explícito "(Atual)"
-        normalizada: pd.Series = self._sem_acentos_minusculo(primeira_serie)
-        mask_atual = normalizada.str.contains(r"\(atual\)", na=False)
-        candidatos = df[mask_atual]
-        if not candidatos.empty:
-            return candidatos.iloc[0]
+        texto_normalizado: pd.Series = self._sem_acentos_minusculo(primeira_serie)
+        mascara_atual = texto_normalizado.str.contains(r"\(atual\)", na=False)
+        linhas_candidatas = df[mascara_atual]
+        if not linhas_candidatas.empty:
+            return linhas_candidatas.iloc[0]
 
         # Senão, escolhe por maior mm/yyyy
-        mm_yyyy = primeira_serie.apply(self._extrair_mm_yyyy)
+        serie_mm_yyyy = primeira_serie.apply(self._extrair_mm_yyyy)
         # Converte para ordenação YYYYMM
-        ordem_num = mm_yyyy.apply(self._yyyy_mm_int)
-        if ordem_num.isna().all():
+        ordem_yyyymm = serie_mm_yyyy.apply(self._yyyy_mm_int)
+        if ordem_yyyymm.isna().all():
             raise ValueError("Não foi possível determinar a referência atual.")
-        idx_max = ordem_num.idxmax()
-        return df.loc[idx_max]
+        indice_maximo = ordem_yyyymm.idxmax()
+        return df.loc[indice_maximo]
 
     def _extrair_referencia(self, linha: pd.Series) -> str:
-        texto = str(linha.iloc[0])
-        m = re.search(PADRAO_REFERENCIA_MM_YYYY, texto)
-        if not m:
+        texto_celula_inicial = str(linha.iloc[0])
+        match = re.search(PADRAO_REFERENCIA_MM_YYYY, texto_celula_inicial)
+        if not match:
             raise ValueError("Referência (mm/yyyy) não identificada na linha atual.")
-        return f"{m.group(1)} (Atual)"
+        return f"{match.group(1)} (Atual)"
 
     def _extrair_valor(self, linha: pd.Series, valor_col: Hashable) -> str:
-        valor = str(linha[valor_col]).strip()
-        if not valor or valor.lower() == "nan":
-            linha_txt = " ".join(linha.astype(str).tolist())
-            m_val = re.search(PADRAO_MOEDA, linha_txt)
-            if not m_val:
+        valor_str = str(linha[valor_col]).strip()
+        if not valor_str or valor_str.lower() == "nan":
+            linha_texto = " ".join(linha.astype(str).tolist())
+            match_valor = re.search(PADRAO_MOEDA, linha_texto)
+            if not match_valor:
                 raise ValueError("Valor atual não identificado.")
-            valor = m_val.group(0)
-        return valor
+            valor_str = match_valor.group(0)
+        return valor_str
 
     @staticmethod
     def _extrair_mm_yyyy(texto: str) -> Optional[str]:
         if not texto:
             return None
-        m = re.search(PADRAO_REFERENCIA_MM_YYYY, texto)
-        return m.group(1) if m else None
+        match = re.search(PADRAO_REFERENCIA_MM_YYYY, texto)
+        return match.group(1) if match else None
 
     @staticmethod
     def _yyyy_mm_int(mm_yyyy: Optional[str]) -> Optional[int]:
@@ -172,19 +165,25 @@ class SamaeExtrator:
 
     @staticmethod
     def _sem_acentos_minusculo(serie: pd.Series) -> pd.Series:
-        import unicodedata
-        def norm_one(s: str) -> str:
-            s = unicodedata.normalize("NFKD", s)
-            s = "".join(ch for ch in s if not unicodedata.combining(ch))
-            return s.lower()
-        return serie.astype(str).fillna("").map(norm_one)
+        import unicodedata as _unicodedata
+
+        def normalizar_texto(texto: str) -> str:
+            texto_norm = _unicodedata.normalize("NFKD", texto)
+            texto_sem_acentos = "".join(
+                caractere for caractere in texto_norm if not _unicodedata.combining(caractere)
+            )
+            return texto_sem_acentos.lower()
+
+        return serie.astype(str).fillna("").map(normalizar_texto)
 
     @staticmethod
-    def _chave_normalizada(s: str) -> str:
-        import unicodedata as _uni
-        s = _uni.normalize("NFKD", s)
-        s = "".join(ch for ch in s if not _uni.combining(ch)).lower()
-        return re.sub(r"[^a-z0-9]", "", s)
+    def _chave_normalizada(texto: str) -> str:
+        import unicodedata as _unicodedata
+        texto_norm = _unicodedata.normalize("NFKD", texto)
+        texto_sem_acentos = "".join(
+            caractere for caractere in texto_norm if not _unicodedata.combining(caractere)
+        ).lower()
+        return re.sub(r"[^a-z0-9]", "", texto_sem_acentos)
 
 
 def obter_tabela_samae(caminho_pdf: str) -> pd.DataFrame:
@@ -197,7 +196,7 @@ if __name__ == "__main__":
         pdf_agua = os.path.normpath(
             os.path.join(os.path.dirname(__file__), "..", "assets", "samae", "segunda-via.pdf")
         )
-        df = obter_tabela_samae(pdf_agua)
+        df = obter_tabela_samae(pdf_agua)   
         print(df)
     except (FileNotFoundError, ValueError, RuntimeError) as e:
         print(f"Erro: {e}")
