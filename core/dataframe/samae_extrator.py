@@ -6,12 +6,10 @@ from dataclasses import dataclass
 from typing import Optional, Iterable, List, Protocol, cast
 from collections.abc import Hashable
 import pandas as pd
-from dataframe_wrapper import DataFrameWrapper
+from .dataframe_wrapper import DataFrameWrapper
 
 
-# "Linguagem ubíqua" do domínio SAMAE e princípios SOLID
-# - Introduzimos um protocolo (porta) para extração de tabelas de PDF, permitindo inversão de dependência (DIP)
-# - Mantemos DataFrameWrapper como implementação padrão dessa porta
+
 class TabelaPdfExtratora(Protocol):
     def carregar_tabelas_pdf(self, file_path: Optional[str] = None) -> List[pd.DataFrame]:
         ...

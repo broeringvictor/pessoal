@@ -6,7 +6,8 @@ from dataclasses import dataclass
 from typing import Iterable, List, Optional, Tuple, Protocol
 
 import pandas as pd
-from dataframe_wrapper import DataFrameWrapper
+from .dataframe_wrapper import DataFrameWrapper
+from core.entities import ContaLuz
 
 
 # Porta para inversão de dependência (SOLID - DIP)
@@ -107,6 +108,7 @@ class CelescExtrator:
 
         tabela_final = self._normalizar_nomes_colunas_alvo(tabela_final)
         tabela_final = self._renomear_total_para_valor_total(tabela_final)
+        tabela_final = self._assegurar_coluna_referencia(tabela_final)
         return tabela_final
 
     # --- Utilitários internos --------------------------------------------
@@ -240,6 +242,46 @@ class CelescExtrator:
             )
         return out
 
+    @staticmethod
+    def _assegurar_coluna_referencia(df: pd.DataFrame) -> pd.DataFrame:
+        """Se 'Referência' não existir, deriva de 'Data' no formato mm/yyyy."""
+        if "Referência" in df.columns:
+            return df
+        if "Data" not in df.columns:
+            return df
+        out = df.copy()
+        # Extrai mm/yyyy de dd/mm/yyyy
+        serie_data = out["Data"].astype(str)
+
+        def _to_ref(v: str) -> str:
+            m = re.search(r"\b(\d{2})/(\d{2})/(\d{4})\b", v)
+            if not m:
+                return ""
+            return f"{m.group(2)}/{m.group(3)}"
+
+        out["Referência"] = serie_data.map(_to_ref)
+        return out
+
+    # ----------------- Mapeamento para entidades de domínio -----------------
+    def to_contas_luz(self) -> List[ContaLuz]:
+        """Converte a tabela final em uma lista de entidades ContaLuz."""
+        contas: List[ContaLuz] = []
+        df = self.tabela_final
+        if df is None or df.empty:
+            return contas
+        for _, linha in df.iterrows():
+            referencia_valor = str(linha.get("Referência", "")).strip()
+            valor_total = str(linha.get("Valor Total", "")).strip()
+            if not referencia_valor or not valor_total:
+                continue
+            try:
+                conta = ContaLuz.criar(referencia_valor, valor_total)
+                contas.append(conta)
+            except ValueError:
+                # ignora linhas que não puderem ser normalizadas
+                continue
+        return contas
+
 
 # --- API de módulo (compatível) -------------------------------------------
 
@@ -254,6 +296,12 @@ def extrair_tabela_celesc(
 def obter_tabela_celesc(caminho_pdf: str) -> pd.DataFrame:
     """Retorna a tabela CELESC do PDF informado."""
     return extrair_tabela_celesc(caminho_pdf)
+
+
+def extrair_contas_luz(caminho_pdf: str) -> List[ContaLuz]:
+    """Extrai a tabela CELESC e retorna uma lista de ContaLuz mapeadas de (Referência, Valor Total)."""
+    extrator = CelescExtrator(caminho_pdf)
+    return extrator.to_contas_luz()
 
 
 # Validação e Runner de alto nível
@@ -297,6 +345,7 @@ def run_extraction(
 
     if out_csv:
         from pathlib import Path
+
         caminho_saida = Path(out_csv)
         caminho_saida.parent.mkdir(parents=True, exist_ok=True)
         df.to_csv(caminho_saida, index=False, encoding="utf-8")
