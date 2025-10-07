@@ -36,6 +36,23 @@ class DataFrameWrapper:
 
         return [tabela for tabela in tabelas if isinstance(tabela, pd.DataFrame)]
 
+    def carregar_tabelas_csv(self, file_path: Optional[str] = None) -> List[pd.DataFrame]:
+        """Carrega tabela de um arquivo CSV usando pandas."""
+        path = file_path or self.file_path
+        if not path:
+            raise ValueError("Nenhum caminho de CSV foi fornecido.")
+        if not os.path.exists(path):
+            raise FileNotFoundError(f"Arquivo CSV não encontrado: {path}")
+
+        try:
+            # Usa pandas para ler CSV, não tabula (que é específico para PDFs)
+            dataframe_csv = pd.read_csv(path)
+            return [dataframe_csv]  # Retorna como lista para consistência com a interface
+        except Exception as e:
+            raise RuntimeError(
+                "Falha ao ler o arquivo CSV. Verifique o formato e encoding do arquivo."
+            ) from e
+
     def localizar_tabela_com_palavras_chave(
         self,
         tabelas: Iterable[pd.DataFrame],
@@ -72,15 +89,36 @@ class DataFrameWrapper:
         return texto_sem_acentos.lower()
 
 if __name__ == "__main__":
-    try:
-        pdf_agua = os.path.normpath(
-            os.path.join(os.path.dirname(__file__), "..", "assets", "samae", "segunda-via.pdf")
-        )
-        wrapper = DataFrameWrapper(file_path=pdf_agua, pages="all", multiple_tables=True, stream=True)
-        dfs = wrapper.carregar_tabelas_pdf()
-        for cada_tabela in dfs:
-            print(cada_tabela)
-    except FileNotFoundError as e:
-        print(e)
-    except (ValueError, RuntimeError) as e:
-        print(f"Ocorreu um erro: {e}")
+    
+    def samae():
+        try:
+            pdf_agua = os.path.normpath(
+                os.path.join(os.path.dirname(__file__), "..", "assets", "samae", "segunda-via.pdf")
+            )
+            wrapper = DataFrameWrapper(file_path=pdf_agua, pages="all", multiple_tables=True, stream=True)
+            dfs = wrapper.carregar_tabelas_pdf()
+            for cada_tabela in dfs:
+                print(cada_tabela)
+        except FileNotFoundError as e:
+            print(e)
+        except (ValueError, RuntimeError) as e:
+            print(f"Ocorreu um erro: {e}")
+    
+    # samae()
+    
+    def csv():
+        try:
+            dfs = dfinter.carregar_tabelas_csv()
+            
+            for indice, dataframe_atual in enumerate(dfs):
+                print(f"DataFrame {indice + 1}:")
+                print(dataframe_atual.head())
+                print(f"Shape: {dataframe_atual.shape}")
+                print("-" * 50)
+                
+        except FileNotFoundError as erro_arquivo:
+            print(f"Arquivo não encontrado: {erro_arquivo}")
+        except (ValueError, RuntimeError) as erro_processamento:
+            print(f"Erro ao processar CSV: {erro_processamento}")
+    
+    csv()  # Descomentado para testar

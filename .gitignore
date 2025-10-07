@@ -132,3 +132,10 @@ $RECYCLE.BIN/
 *.msp
 
 *.lnk
+
+# --- JetBrains Terminal history artifacts leaking into project root (WSL/UNC) ---
+# When a Windows-styled absolute path (C:\Users\...\JetBrains\...\terminal\history\pessoal-history*)
+# is resolved as a literal filename by a non-Windows shell, the full path string may be created
+# as files in the repo root. These patterns keep them out of git.
+C*JetBrains*terminal*history*pessoal-history*
+*JetBrains*terminal*history*pessoal-history*
