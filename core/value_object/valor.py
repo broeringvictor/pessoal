@@ -5,6 +5,7 @@ from __future__ import annotations
 Esta classe especializa o normalizador `ValorMonetario`, herdando toda a
 capacidade de parsing/normalização a partir de strings, inteiros, floats
 ou Decimal. Mantém semântica de Value Object (imutável e com igualdade por valor).
+Regra de domínio: não aceita valores negativos; zero é permitido (isenção).
 """
 
 from decimal import Decimal
@@ -18,18 +19,20 @@ class Valor(ValorMonetario):
 
     - Utilize `Valor.criar_de_bruto(...)` para criar a partir de textos como
       "R$ 1.234,56".
-    - Utilize `Valor.criar_de_centavos(123456)` para criar a partir de centavos.
-    - A propriedade `valor` expõe um `Decimal` com 2 casas.
-    - `para_centavos()` retorna inteiro em centavos (ótimo para persistência em banco).
+    - Utilize `Valor.criar_de_decimal(Decimal("1234.56"))` para criar a partir de Decimal.
+    - A propriedade `valor` expõe um `Decimal` com 2 casas (adequado para NUMERIC em Postgres).
+    - Não aceita valores negativos; zero é permitido.
     """
 
     # Impede construção direta; obrigatoriedade de usar fábricas da classe
     def __init__(self, *_args, **_kwargs) -> None:  # type: ignore[override]
-        raise TypeError("Use as fábricas da classe (ex.: Valor.criar_de_bruto, Valor.criar_de_centavos).")
+        raise TypeError("Use as fábricas da classe (ex.: Valor.criar_de_bruto, Valor.criar_de_decimal).")
 
     # Construtor interno para uso exclusivo das fábricas
     @classmethod
     def _criar_interno(cls, valor_normalizado: Decimal) -> "Valor":
+        if valor_normalizado < Decimal("0.00"):
+            raise ValueError("Valor monetário não pode ser negativo.")
         instancia = object.__new__(cls)
         # Inicializa campos do dataclass pai (frozen) garantindo quantização
         ValorMonetario.__init__(instancia, valor_normalizado)  # type: ignore[misc]
@@ -44,21 +47,6 @@ class Valor(ValorMonetario):
     @classmethod
     def criar_de_decimal(cls, valor_decimal: Decimal) -> "Valor":
         return cls._criar_interno(valor_decimal)
-
-    @classmethod
-    def criar_de_centavos(cls, centavos: int) -> "Valor":
-        normalizado = ValorMonetario.from_centavos(centavos).valor
-        return cls._criar_interno(normalizado)
-
-    # Persistência otimizada para banco de dados
-    def para_banco(self) -> int:
-        """Representação otimizada para banco: inteiro em centavos."""
-        return self.to_centavos()
-
-    @classmethod
-    def do_banco(cls, centavos: int) -> "Valor":
-        """Reconstrói a partir do formato otimizado de banco (centavos)."""
-        return cls.criar_de_centavos(centavos)
 
     # Atualizações imutáveis
     def atualizar_valor(self, novo_valor: Union[str, int, float, Decimal]) -> "Valor":
@@ -87,7 +75,3 @@ class Valor(ValorMonetario):
         Método utilitário sem efeitos colaterais, presente por simetria de API.
         """
         return None
-
-    # Nomes compatíveis com a API herdada, porém mais declarativos
-    def para_centavos(self) -> int:
-        return self.to_centavos()

@@ -7,7 +7,8 @@ normalização de entradas como "09/2025" ou "09/2025 (Atual)".
 Mantém semântica de Value Object (imutável e igualdade por valor).
 """
 
-from typing import Tuple
+from datetime import date, datetime
+from typing import Tuple, Union
 
 from core.shared.value_objects import ReferenciaMensal
 
@@ -17,18 +18,22 @@ class MesReferencia(ReferenciaMensal):
 
     - A propriedade `referencia` fica padronizada em "MM/YYYY".
     - `as_tuple()` retorna `(mes:int, ano:int)`.
-    - `para_banco()` retorna inteiro otimizado no formato `AAAAMM`.
+    - `para_banco()` retorna `date(ano, mes, 1)` (ótimo para Postgres/filters).
     """
 
     # Impede construção direta; obrigatoriedade de usar fábricas da classe
     def __init__(self, *_args, **_kwargs) -> None:  # type: ignore[override]
-        raise TypeError("Use as fábricas da classe (ex.: MesReferencia.criar_de_texto, MesReferencia.do_banco).")
+        raise TypeError("Use as fábricas da classe (ex.: MesReferencia.criar_de_texto ou criar_de_data).")
 
     # Construtor interno para uso exclusivo das fábricas
     @classmethod
     def _criar_interno(cls, texto: str) -> "MesReferencia":
+        # Usa o VO base para validar/normalizar e então copia os campos normalizados
+        base = ReferenciaMensal(texto)
         instancia = object.__new__(cls)
-        ReferenciaMensal.__init__(instancia, texto)  # chama validação/normalização do pai
+        object.__setattr__(instancia, "referencia", base.referencia)
+        object.__setattr__(instancia, "mes", base.mes)
+        object.__setattr__(instancia, "ano", base.ano)
         return instancia  # type: ignore[return-value]
 
     # Criação declarativa
@@ -37,16 +42,19 @@ class MesReferencia(ReferenciaMensal):
         return cls._criar_interno(texto)
 
     @classmethod
-    def do_banco(cls, ano_mes: int) -> "MesReferencia":
-        """Reconstrói a partir do formato inteiro AAAAMM (ex.: 202509)."""
-        ano = ano_mes // 100
-        mes = ano_mes % 100
+    def criar_de_data(cls, valor_data: Union[date, datetime]) -> "MesReferencia":
+        ano = valor_data.year
+        mes = valor_data.month
         return cls._criar_interno(f"{mes:02d}/{ano}")
 
     # Persistência otimizada para banco de dados
-    def para_banco(self) -> int:
-        """Inteiro no formato AAAAMM (ex.: 202509)."""
-        return (self.ano * 100) + self.mes
+    def para_banco(self) -> date:
+        """Retorna a data do primeiro dia do mês (YYYY-MM-01) para persistência em Postgres (DATE)."""
+        return date(self.ano, self.mes, 1)
+
+    def como_data(self) -> date:
+        """Alias para `para_banco()`, útil em consultas/filters."""
+        return self.para_banco()
 
     # Atualização imutável
     def atualizar_referencia(self, novo_texto: str) -> "MesReferencia":

@@ -2,6 +2,12 @@ core/assets/
 !core/assets/__init__.py
 
 .idea/
+*.pdf
+**/*.pdf
+
+# Artefatos de caminho do Windows (quando mapeados na raiz)
+C:*/
+C:*
 
 __pycache__/
 *.py[cod]
