@@ -89,7 +89,6 @@ class DataFrameWrapper:
         return texto_sem_acentos.lower()
 
 if __name__ == "__main__":
-    
     def samae():
         try:
             pdf_agua = os.path.normpath(
@@ -103,22 +102,26 @@ if __name__ == "__main__":
             print(e)
         except (ValueError, RuntimeError) as e:
             print(f"Ocorreu um erro: {e}")
-    
+
     # samae()
-    
+
     def csv():
         try:
-            dfs = dfinter.carregar_tabelas_csv()
-            
-            for indice, dataframe_atual in enumerate(dfs):
-                print(f"DataFrame {indice + 1}:")
+            caminho_csv_inter = os.path.normpath(
+                os.path.join(os.path.dirname(__file__), "..", "assets", "cartao", "inter", "fatura-inter-2024-08.csv")
+            )
+            wrapper_inter = DataFrameWrapper(file_path=caminho_csv_inter)
+            dataframes = wrapper_inter.carregar_tabelas_csv()
+
+            for indice_data, dataframe_atual in enumerate(dataframes, start=1):
+                print(f"DataFrame {indice_data}:")
                 print(dataframe_atual.head())
                 print(f"Shape: {dataframe_atual.shape}")
                 print("-" * 50)
-                
+
         except FileNotFoundError as erro_arquivo:
             print(f"Arquivo não encontrado: {erro_arquivo}")
         except (ValueError, RuntimeError) as erro_processamento:
             print(f"Erro ao processar CSV: {erro_processamento}")
-    
-    csv()  # Descomentado para testar
+
+    # csv()  # Descomente para testar manualmente

@@ -28,11 +28,22 @@ class ValorMonetario:
             
         elif isinstance(bruto, str):
             texto = bruto.strip()
+            # Remove espaços e símbolo de moeda (R$)
             texto = re.sub(r"\s|R\$", "", texto)
-            texto = texto.replace(".", "").replace(",", ".")
+
+            # Regras de normalização:
+            # - Se houver vírgula e ponto: assumir ponto como milhar e vírgula como decimal (ex.: 1.234,56)
+            # - Se houver apenas vírgula: tratá-la como decimal (ex.: 1234,56 -> 1234.56)
+            # - Se não houver vírgula: manter ponto como decimal, se houver (ex.: 1234.5 -> 1234.5)
+            if "," in texto and "." in texto:
+                texto_normalizado = texto.replace(".", "").replace(",", ".")
+            elif "," in texto:
+                texto_normalizado = texto.replace(",", ".")
+            else:
+                texto_normalizado = texto  # já está em formato com ponto decimal ou inteiro
             
             try:
-                valor = Decimal(texto)
+                valor = Decimal(texto_normalizado)
             except InvalidOperation as exc:
                 raise ValueError(f"Valor inválido: '{bruto}'.") from exc
         
@@ -50,4 +61,3 @@ class ValorMonetario:
 
     def __str__(self) -> str:  # pragma: no cover
         return f"{self.valor:.2f}"
-

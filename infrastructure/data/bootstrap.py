@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from infrastructure.data.db_context import database_engine
+from infrastructure.data.db_context import get_engine
 from infrastructure.data.mappings import start_mappers, metadata_obj
 
 
@@ -12,5 +12,4 @@ def init_persistence(create_schema: bool = False) -> None:
     """
     start_mappers()
     if create_schema:
-        metadata_obj.create_all(bind=database_engine)
-
+        metadata_obj.create_all(bind=get_engine())
