@@ -6,7 +6,7 @@ import glob
 
 from fastapi import APIRouter, HTTPException
 from pydantic import BaseModel
-from sqlalchemy.exc import OperationalError
+from sqlalchemy.exc import OperationalError, ProgrammingError
 
 from api.logging_config import logger as app_logger
 from application.conta_luz.handlers import ContaLuzSyncService
@@ -109,6 +109,12 @@ def sync_from_pdf(request: SyncRequest) -> SyncResult:
     except OperationalError as err:
         app_logger.exception("Database connectivity error during sync")
         raise HTTPException(status_code=503, detail="Database unavailable or unreachable.") from err
+    except ProgrammingError as err:
+        app_logger.exception("Database schema error during sync (missing tables?)")
+        raise HTTPException(
+            status_code=500,
+            detail="Database schema missing. Run migrations: 'uv run alembic upgrade head' or set INIT_DB_SCHEMA=1 once.",
+        ) from err
 
     app_logger.info(
         "Sync completed",

@@ -7,6 +7,8 @@ from sqlalchemy import pool
 
 # --- Ensure project root is on sys.path for imports like 'infrastructure.*' ---
 import sys
+import os
+from urllib.parse import quote_plus
 from pathlib import Path
 PROJECT_ROOT = Path(__file__).resolve().parents[1]
 if str(PROJECT_ROOT) not in sys.path:
@@ -25,12 +27,23 @@ if config.config_file_name is not None:
     fileConfig(config.config_file_name)
 
 # add your model's MetaData object here for 'autogenerate' support
-# from myapp import mymodel
-# target_metadata = mymodel.Base.metadata
 # In this project, we keep SQLAlchemy-agnostic core in `core/` and
 # table definitions under infrastructure.data.mappings
 
 target_metadata = metadata_obj
+
+
+def _build_url_from_env() -> str:
+    database_url = os.getenv("DATABASE_URL")
+    if database_url:
+        return database_url
+    user = os.getenv("DB_USER", "postgres")
+    password_raw = os.getenv("DB_PASSWORD", "")
+    host = os.getenv("DB_HOST", "localhost")
+    port = int(os.getenv("DB_PORT", "5433"))
+    name = os.getenv("DB_NAME", "postgres")
+    password = quote_plus(password_raw)
+    return f"postgresql://{user}:{password}@{host}:{port}/{name}"
 
 
 def run_migrations_offline() -> None:
@@ -38,8 +51,7 @@ def run_migrations_offline() -> None:
 
     In this scenario we need only a URL; Engine is not required.
     """
-    engine = get_engine()
-    url = str(engine.url)
+    url = _build_url_from_env()
 
     context.configure(
         url=url,
