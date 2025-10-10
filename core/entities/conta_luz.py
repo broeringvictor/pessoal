@@ -13,7 +13,7 @@ ReferenciaTipo = str
 ValorTipo = Decimal
 
 
-@dataclass(slots=True)
+@dataclass()
 class ContaLuz(Entity):
     """Entidade de conta de luz (CELESC)."""
 

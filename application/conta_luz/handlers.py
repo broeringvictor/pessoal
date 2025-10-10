@@ -92,8 +92,8 @@ class ContaLuzSyncService:
             "skipped": len(referencias_coletadas) - inseridos,
             "created_references": referencias_novas,
         }
-        _logger.info(
-            "Sync summary",
-            extra={k: v for k, v in resumo.items() if k not in {"failed_files"}},
-        )
+        # Evita chaves reservadas do LogRecord como 'created'
+        safe_extra = {k: v for k, v in resumo.items() if k not in {"failed_files", "created"}}
+        safe_extra["created_count"] = resumo["created"]
+        _logger.info("Sync summary", extra=safe_extra)
         return resumo

@@ -5,6 +5,7 @@ from decimal import Decimal
 from typing import Optional, Union
 
 from core.shared.entities import Entity
+from core.shared.value_objects import ReferenciaMensal
 from core.value_object.mes_referencia import MesReferencia
 from core.value_object.valor import Valor
 
@@ -13,7 +14,7 @@ ReferenciaTipo = date
 ValorTipo = Decimal
 
 
-@dataclass(slots=True)
+@dataclass()
 class ContaAgua(Entity):
     """Entidade de conta de água (SAMAE).
 
@@ -57,12 +58,12 @@ class ContaAgua(Entity):
     ) -> "ContaAgua":
         if mes_referencia is not None:
             if isinstance(mes_referencia, MesReferencia):
-                ref_vo = mes_referencia
+                Referencia_vo = mes_referencia
             elif isinstance(mes_referencia, (date, datetime)):
-                ref_vo = MesReferencia.criar_de_data(mes_referencia)
+                Referencia_vo = MesReferencia.criar_de_data(mes_referencia)
             else:
-                ref_vo = MesReferencia.criar_de_texto(str(mes_referencia))
-            self.referencia_data = ref_vo.para_banco()
+                Referencia_vo = MesReferencia.criar_de_texto(str(mes_referencia))
+            self.referencia_data = Referencia_vo.para_banco()
 
         if valor is not None:
             val_vo = valor if isinstance(valor, Valor) else Valor.criar_de_bruto(valor)
