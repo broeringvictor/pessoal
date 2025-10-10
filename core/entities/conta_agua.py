@@ -58,12 +58,12 @@ class ContaAgua(Entity):
     ) -> "ContaAgua":
         if mes_referencia is not None:
             if isinstance(mes_referencia, MesReferencia):
-                Referencia_vo = mes_referencia
+                ref_vo = mes_referencia
             elif isinstance(mes_referencia, (date, datetime)):
-                Referencia_vo = MesReferencia.criar_de_data(mes_referencia)
+                ref_vo = MesReferencia.criar_de_data(mes_referencia)
             else:
-                Referencia_vo = MesReferencia.criar_de_texto(str(mes_referencia))
-            self.referencia_data = Referencia_vo.para_banco()
+                ref_vo = MesReferencia.criar_de_texto(str(mes_referencia))
+            self.referencia_data = ref_vo.para_banco()
 
         if valor is not None:
             val_vo = valor if isinstance(valor, Valor) else Valor.criar_de_bruto(valor)
