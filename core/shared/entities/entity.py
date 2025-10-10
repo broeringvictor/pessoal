@@ -8,7 +8,7 @@ import time
 import secrets
 
 
-@dataclass(slots=True)
+@dataclass()
 class Entity:
     """Entidade base: gera UUIDv7 e created_at (UTC) automaticamente ao instanciar."""
 

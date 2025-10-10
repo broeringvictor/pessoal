@@ -12,6 +12,7 @@ class DataFrameWrapper:
     multiple_tables: bool = True
     stream: bool = True
     lattice: bool = False
+    guess: bool = True  # deixa o tabula tentar detectar áreas automaticamente
 
     def carregar_tabelas_pdf(self, file_path: Optional[str] = None) -> List[pd.DataFrame]:
         """Carrega todas as tabelas de um PDF conforme as opções configuradas."""
@@ -28,6 +29,7 @@ class DataFrameWrapper:
                 multiple_tables=self.multiple_tables,
                 stream=self.stream,
                 lattice=self.lattice,
+                guess=self.guess,
             )
         except Exception as e:
             raise RuntimeError(

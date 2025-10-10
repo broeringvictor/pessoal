@@ -4,6 +4,7 @@ import re
 import unicodedata
 from dataclasses import dataclass
 from typing import Iterable, List, Optional, Tuple, Protocol
+import logging
 
 import pandas as pd
 from .dataframe_wrapper import DataFrameWrapper
@@ -57,20 +58,71 @@ class CelescExtrator:
             stream=stream,
             lattice=lattice,
         )
+        self._logger = logging.getLogger("pessoal.core.celesc")
         self.tabela_final: pd.DataFrame = self._extrair()
 
     # --- Orquestração -----------------------------------------------------
     def _extrair(self) -> pd.DataFrame:
-        tabelas = self.wrapper.carregar_tabelas_pdf(self._caminho_pdf)
-        tabela_alvo = self.wrapper.localizar_tabela_com_palavras_chave(
-            tabelas,
+        # Estratégias de fallback para maximizar a chance de localizar a tabela
+        conjuntos_palavras = [
             self.params.palavras_chave,
-            normalizar=True,
-            exigir_todas=True,
-        )
-        if tabela_alvo is None:
-            raise ValueError("Tabela com as palavras-chave não foi encontrada no PDF fornecido.")
-        return self._montar_tabela_celesc(tabela_alvo, self.params)
+            ("Data", "Documento", "Referência"),
+            ("Data", "Documento", "Vencimento", "Referência"),
+        ]
+        tentativas = [
+            {"stream": True, "lattice": False, "guess": True, "exigir_todas": True},
+            {"stream": False, "lattice": True, "guess": True, "exigir_todas": True},
+            {"stream": True, "lattice": False, "guess": True, "exigir_todas": False},
+            {"stream": False, "lattice": True, "guess": True, "exigir_todas": False},
+            {"stream": True, "lattice": False, "guess": False, "exigir_todas": False},
+            {"stream": False, "lattice": True, "guess": False, "exigir_todas": False},
+        ]
+
+        ultima_excecao: Optional[Exception] = None
+        for indice_palavras, palavras in enumerate(conjuntos_palavras, start=1):
+            for indice_tentativa, cfg in enumerate(tentativas, start=1):
+                try:
+                    self._logger.debug(
+                        "Trying extraction",
+                        extra={
+                            "pdf": self._caminho_pdf,
+                            "words_set": indice_palavras,
+                            "stream": cfg["stream"],
+                            "lattice": cfg["lattice"],
+                            "guess": cfg["guess"],
+                            "require_all": cfg["exigir_todas"],
+                        },
+                    )
+                    # Instancia um wrapper com a configuração desta tentativa
+                    wrapper_tmp = DataFrameWrapper(
+                        file_path=self._caminho_pdf,
+                        pages="all",
+                        multiple_tables=True,
+                        stream=cfg["stream"],
+                        lattice=cfg["lattice"],
+                        guess=cfg["guess"],
+                    )
+                    tabelas = wrapper_tmp.carregar_tabelas_pdf(self._caminho_pdf)
+                    tabela_alvo = wrapper_tmp.localizar_tabela_com_palavras_chave(
+                        tabelas,
+                        palavras,
+                        normalizar=True,
+                        exigir_todas=cfg["exigir_todas"],
+                    )
+                    if tabela_alvo is None:
+                        continue
+                    return self._montar_tabela_celesc(tabela_alvo, self.params)
+                except Exception as exc:  # captura erros do tabula/IO para tentar a próxima
+                    ultima_excecao = exc
+                    continue
+
+        # Se chegamos aqui, falhar explicitamente com mensagem informativa
+        if ultima_excecao:
+            self._logger.debug(
+                "All extraction strategies failed",
+                extra={"pdf": self._caminho_pdf, "error": str(ultima_excecao)},
+            )
+        raise ValueError("Tabela com as palavras-chave não foi encontrada no PDF fornecido.")
 
     # --- Passos do domínio ------------------------------------------------
     def _montar_tabela_celesc(
