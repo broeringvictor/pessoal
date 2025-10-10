@@ -5,8 +5,11 @@ from typing import List, Optional, Sequence
 import glob
 import tempfile
 import shutil
+from uuid import UUID
+from datetime import datetime
+from decimal import Decimal
 
-from fastapi import APIRouter, HTTPException, UploadFile, File, Body
+from fastapi import APIRouter, HTTPException, UploadFile, File, Body, Query
 from pydantic import BaseModel
 from sqlalchemy.exc import OperationalError, ProgrammingError
 
@@ -33,6 +36,22 @@ class SyncResult(BaseModel):
     created: int
     skipped: int
     created_references: List[str]
+
+
+class ContaLuzItem(BaseModel):
+    id: UUID
+    referencia: str
+    valor: Decimal
+    created_at: datetime
+    updated_at: Optional[datetime] = None
+    deleted_at: Optional[datetime] = None
+
+
+class ListaContaLuzResponse(BaseModel):
+    items: List[ContaLuzItem]
+    offset: int
+    limit: int
+    count: int
 
 
 def _normalize_path_text(path_text: str) -> str:
@@ -73,6 +92,45 @@ def _expand_to_pdf_files(path_texts: Sequence[str], recursive: bool) -> List[str
             vistos.add(caminho)
             unicos.append(caminho)
     return unicos
+
+
+@router.get("", response_model=ListaContaLuzResponse)
+def listar_conta_luz(
+    offset: int = Query(0, ge=0, description="Offset para paginação"),
+    limit: int = Query(50, ge=1, le=500, description="Quantidade máxima de itens"),
+    include_deleted: bool = Query(False, description="Incluir registros deletados logicamente"),
+    order_desc: bool = Query(True, description="Ordenar por created_at descendente"),
+) -> ListaContaLuzResponse:
+    try:
+        with get_database_session() as session:
+            repo = ContaLuzRepository(session)
+            entidades = repo.list(offset=offset, limit=limit, include_deleted=include_deleted, order_desc=order_desc)
+            itens: List[ContaLuzItem] = [
+                ContaLuzItem(
+                    id=entidade.id,  # type: ignore[arg-type]
+                    referencia=entidade.referencia,
+                    valor=entidade.valor,  # Decimal
+                    created_at=entidade.created_at,  # type: ignore[arg-type]
+                    updated_at=entidade.updated_at,  # type: ignore[arg-type]
+                    deleted_at=entidade.deleted_at,  # type: ignore[arg-type]
+                )
+                for entidade in entidades
+            ]
+            resposta = ListaContaLuzResponse(items=itens, offset=offset, limit=limit, count=len(itens))
+            app_logger.info(
+                "Listed contas de luz",
+                extra={"offset": offset, "limit": limit, "returned_count": len(itens), "include_deleted": include_deleted},
+            )
+            return resposta
+    except OperationalError as err:
+        app_logger.exception("Database connectivity error during list")
+        raise HTTPException(status_code=503, detail="Database unavailable or unreachable.") from err
+    except ProgrammingError as err:
+        app_logger.exception("Database schema error during list (missing tables?)")
+        raise HTTPException(
+            status_code=500,
+            detail="Database schema missing. Run migrations: 'uv run alembic upgrade head' or set INIT_DB_SCHEMA=1 once.",
+        ) from err
 
 
 @router.post("/sync-from-pdf", response_model=SyncResult)
