@@ -23,7 +23,9 @@ class MesReferencia(ReferenciaMensal):
 
     # Impede construção direta; obrigatoriedade de usar fábricas da classe
     def __init__(self, *_args, **_kwargs) -> None:  # type: ignore[override]
-        raise TypeError("Use as fábricas da classe (ex.: MesReferencia.criar_de_texto ou criar_de_data).")
+        raise TypeError(
+            "Use as fábricas da classe (ex.: MesReferencia.criar_de_texto ou criar_de_data)."
+        )
 
     # Construtor interno para uso exclusivo das fábricas
     @classmethod

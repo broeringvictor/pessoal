@@ -9,7 +9,9 @@ class FakeWrapperCelesc(TabelaPdfExtratora):
         self._tabelas = tabelas
         self._alvo = tabelas[alvo_index]
 
-    def carregar_tabelas_pdf(self, file_path: Optional[str] = None) -> List[pd.DataFrame]:
+    def carregar_tabelas_pdf(
+        self, file_path: Optional[str] = None
+    ) -> List[pd.DataFrame]:
         return self._tabelas
 
     def localizar_tabela_com_palavras_chave(

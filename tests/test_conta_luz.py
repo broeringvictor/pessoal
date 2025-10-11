@@ -49,4 +49,3 @@ def test_valor_invalido_levanta_erro():
         raise AssertionError("Esperava ValueError para valor inválido")
     except ValueError:
         pass
-

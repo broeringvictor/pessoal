@@ -80,4 +80,3 @@ def configure_logging() -> None:
 
 # Convenience logger for the app
 logger = logging.getLogger("pessoal")
-

@@ -21,7 +21,9 @@ class Entity:
     deleted_at: Optional[datetime] = None
 
     # Campos reservados para auditoria que tipicamente não devem ser manipulados diretamente
-    _RESERVED: ClassVar[frozenset[str]] = frozenset({"id", "created_at", "updated_at", "deleted_at"})
+    _RESERVED: ClassVar[frozenset[str]] = frozenset(
+        {"id", "created_at", "updated_at", "deleted_at"}
+    )
 
     def __post_init__(self) -> None:
         if self.id is None:

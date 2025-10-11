@@ -49,4 +49,3 @@ def start_mappers() -> None:
     # Idempotent: SQLAlchemy will no-op if the class is already mapped
     mapper_registry.map_imperatively(ContaLuz, conta_luz_table)
     mapper_registry.map_imperatively(ContaAgua, conta_agua_table)
-

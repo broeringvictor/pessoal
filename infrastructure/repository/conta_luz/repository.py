@@ -19,7 +19,9 @@ class ContaLuzRepository:
 
     def list_existing_references(self) -> Set[str]:
         """Retorna um conjunto de referências (mm/yyyy) já persistidas (não deletadas)."""
-        consulta = select(conta_luz_table.c.referencia).where(conta_luz_table.c.deleted_at.is_(None))
+        consulta = select(conta_luz_table.c.referencia).where(
+            conta_luz_table.c.deleted_at.is_(None)
+        )
         resultados = self._session.execute(consulta).scalars().all()
         referencias = set(str(valor) for valor in resultados)
         _logger.info("Fetched existing references", extra={"count": len(referencias)})
@@ -46,11 +48,20 @@ class ContaLuzRepository:
         consulta = select(ContaLuz)
         if not include_deleted:
             consulta = consulta.where(conta_luz_table.c.deleted_at.is_(None))
-        ordenacao = desc(conta_luz_table.c.created_at) if order_desc else asc(conta_luz_table.c.created_at)
+        ordenacao = (
+            desc(conta_luz_table.c.created_at)
+            if order_desc
+            else asc(conta_luz_table.c.created_at)
+        )
         consulta = consulta.order_by(ordenacao).offset(offset).limit(limit)
         resultados = self._session.execute(consulta).scalars().all()
         _logger.debug(
             "Listed ContaLuz entities",
-            extra={"count": len(resultados), "offset": offset, "limit": limit, "include_deleted": include_deleted},
+            extra={
+                "count": len(resultados),
+                "offset": offset,
+                "limit": limit,
+                "include_deleted": include_deleted,
+            },
         )
         return resultados

@@ -9,10 +9,10 @@ import pandas as pd
 from .dataframe_wrapper import DataFrameWrapper
 
 
-
 class TabelaPdfExtratora(Protocol):
-    def carregar_tabelas_pdf(self, file_path: Optional[str] = None) -> List[pd.DataFrame]:
-        ...
+    def carregar_tabelas_pdf(
+        self, file_path: Optional[str] = None
+    ) -> List[pd.DataFrame]: ...
 
     def localizar_tabela_com_palavras_chave(
         self,
@@ -21,8 +21,7 @@ class TabelaPdfExtratora(Protocol):
         *,
         normalizar: bool = True,
         exigir_todas: bool = True,
-    ) -> Optional[pd.DataFrame]:
-        ...
+    ) -> Optional[pd.DataFrame]: ...
 
 
 PALAVRAS_CHAVE_HISTORICO_CONSUMO = ("HISTÓRICO", "CONSUMO", "VALOR")
@@ -62,11 +61,16 @@ class SamaeExtrator:
         tabelas = self.wrapper.carregar_tabelas_pdf(file_path or self._caminho_pdf)
 
         tabela_hist = self.wrapper.localizar_tabela_com_palavras_chave(
-            tabelas, PALAVRAS_CHAVE_HISTORICO_CONSUMO, normalizar=True, exigir_todas=False
+            tabelas,
+            PALAVRAS_CHAVE_HISTORICO_CONSUMO,
+            normalizar=True,
+            exigir_todas=False,
         )
         if tabela_hist is None:
             # Fallback: escolhe a primeira tabela que tenha uma coluna de valor plausível
-            tabela_hist = next((t for t in tabelas if self._detectar_coluna_valor(t) is not None), None)
+            tabela_hist = next(
+                (t for t in tabelas if self._detectar_coluna_valor(t) is not None), None
+            )
         if tabela_hist is None:
             raise ValueError("Tabela de consumo/valor não encontrada no PDF.")
 
@@ -94,13 +98,17 @@ class SamaeExtrator:
         for coluna_rotulo in df.columns:
             rotulo_normalizado = self._chave_normalizada(str(coluna_rotulo))
             if rotulo_normalizado in ("valorrs", "valorr", "valor") or (
-                "valor" in rotulo_normalizado and ("rs" in rotulo_normalizado or "r" in rotulo_normalizado)
+                "valor" in rotulo_normalizado
+                and ("rs" in rotulo_normalizado or "r" in rotulo_normalizado)
             ):
                 return coluna_rotulo
         # Conteúdo da última coluna como fallback
         ultima_coluna: Hashable = cast(Hashable, df.columns[-1])
         proporcao_padrao_moeda = (
-            df[ultima_coluna].astype(str).str.contains(PADRAO_MOEDA, regex=True, na=False).mean()
+            df[ultima_coluna]
+            .astype(str)
+            .str.contains(PADRAO_MOEDA, regex=True, na=False)
+            .mean()
         )
         if proporcao_padrao_moeda > 0.3:
             return ultima_coluna
@@ -168,7 +176,9 @@ class SamaeExtrator:
         def normalizar_texto(texto: str) -> str:
             texto_norm = _unicodedata.normalize("NFKD", texto)
             texto_sem_acentos = "".join(
-                caractere for caractere in texto_norm if not _unicodedata.combining(caractere)
+                caractere
+                for caractere in texto_norm
+                if not _unicodedata.combining(caractere)
             )
             return texto_sem_acentos.lower()
 
@@ -177,9 +187,12 @@ class SamaeExtrator:
     @staticmethod
     def _chave_normalizada(texto: str) -> str:
         import unicodedata as _unicodedata
+
         texto_norm = _unicodedata.normalize("NFKD", texto)
         texto_sem_acentos = "".join(
-            caractere for caractere in texto_norm if not _unicodedata.combining(caractere)
+            caractere
+            for caractere in texto_norm
+            if not _unicodedata.combining(caractere)
         ).lower()
         return re.sub(r"[^a-z0-9]", "", texto_sem_acentos)
 
@@ -192,9 +205,11 @@ def obter_tabela_samae(caminho_pdf: str) -> pd.DataFrame:
 if __name__ == "__main__":
     try:
         pdf_agua = os.path.normpath(
-            os.path.join(os.path.dirname(__file__), "..", "assets", "samae", "segunda-via.pdf")
+            os.path.join(
+                os.path.dirname(__file__), "..", "assets", "samae", "segunda-via.pdf"
+            )
         )
-        df = obter_tabela_samae(pdf_agua)   
+        df = obter_tabela_samae(pdf_agua)
         print(df)
     except (FileNotFoundError, ValueError, RuntimeError) as e:
         print(f"Erro: {e}")

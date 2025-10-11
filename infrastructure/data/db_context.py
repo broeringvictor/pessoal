@@ -13,8 +13,10 @@ from sqlalchemy.orm import sessionmaker, declarative_base, Session
 try:  # optional dependency
     from dotenv import load_dotenv  # type: ignore
 except Exception:  # pragma: no cover - fallback when python-dotenv is missing
+
     def load_dotenv(*_args, **_kwargs):  # noop fallback
         return False
+
 
 # Logger for infrastructure
 _logger = logging.getLogger("pessoal.infrastructure.db")
@@ -74,7 +76,9 @@ def get_engine() -> Engine:
     global _engine
     if _engine is None:
         raw_url = _build_database_url_from_env()
-        _logger.info("Creating SQLAlchemy engine", extra={"url": _sanitize_url(raw_url)})
+        _logger.info(
+            "Creating SQLAlchemy engine", extra={"url": _sanitize_url(raw_url)}
+        )
         _engine = create_engine(
             raw_url,
             echo=False,

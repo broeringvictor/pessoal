@@ -22,13 +22,17 @@ class ContaLuz(Entity):
 
     # ----------------- Fábrica/Construtor de criação -----------------
     @classmethod
-    def criar(cls, mes_referencia: str, valor: Union[str, int, float, Decimal]) -> "ContaLuz":
+    def criar(
+        cls, mes_referencia: str, valor: Union[str, int, float, Decimal]
+    ) -> "ContaLuz":
         ref_vo = ReferenciaMensal(mes_referencia)
         val_vo = ValorMonetario.from_bruto(valor)
         return cls(referencia=ref_vo.referencia, valor=val_vo.valor)
 
     @classmethod
-    def criar_de_centavos(cls, mes_referencia: str, valor_em_centavos: int) -> "ContaLuz":
+    def criar_de_centavos(
+        cls, mes_referencia: str, valor_em_centavos: int
+    ) -> "ContaLuz":
         """Cria a entidade a partir de um inteiro em centavos (persistência SQLite recomendada: INTEGER)."""
         ref_vo = ReferenciaMensal(mes_referencia)
         val_vo = ValorMonetario.from_centavos(valor_em_centavos)

@@ -19,13 +19,12 @@ class ValorMonetario:
 
     @classmethod
     def from_bruto(cls, bruto: Union[str, int, float, Decimal]) -> "ValorMonetario":
-        
         if isinstance(bruto, Decimal):
             valor = bruto
-            
+
         elif isinstance(bruto, (int, float)):
             valor = Decimal(str(bruto))
-            
+
         elif isinstance(bruto, str):
             texto = bruto.strip()
             # Remove espaços e símbolo de moeda (R$)
@@ -40,13 +39,15 @@ class ValorMonetario:
             elif "," in texto:
                 texto_normalizado = texto.replace(",", ".")
             else:
-                texto_normalizado = texto  # já está em formato com ponto decimal ou inteiro
-            
+                texto_normalizado = (
+                    texto  # já está em formato com ponto decimal ou inteiro
+                )
+
             try:
                 valor = Decimal(texto_normalizado)
             except InvalidOperation as exc:
                 raise ValueError(f"Valor inválido: '{bruto}'.") from exc
-        
+
         else:
             raise ValueError("Tipo de valor não suportado.")
         return cls(valor)
@@ -57,7 +58,9 @@ class ValorMonetario:
         return cls(valor)
 
     def to_centavos(self) -> int:
-        return int((self.valor * Decimal(100)).quantize(Decimal("1"), rounding=ROUND_HALF_EVEN))
+        return int(
+            (self.valor * Decimal(100)).quantize(Decimal("1"), rounding=ROUND_HALF_EVEN)
+        )
 
     def __str__(self) -> str:  # pragma: no cover
         return f"{self.valor:.2f}"

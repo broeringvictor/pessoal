@@ -4,9 +4,18 @@ import os
 import time
 from contextlib import asynccontextmanager
 from fastapi import FastAPI, Request, Response
+from fastapi.exceptions import RequestValidationError
+from fastapi.responses import JSONResponse
+from fastapi.encoders import jsonable_encoder
 
-from api.logging_config import configure_logging, generate_request_id, set_request_id, logger as app_logger
-from api.conta_luz import router as conta_luz_router
+from api.configurations.logging_config import (
+    configure_logging,
+    generate_request_id,
+    set_request_id,
+    logger as app_logger,
+)
+from api.endpoints.conta_luz import router as conta_luz_router
+from api.endpoints.conta_agua import router as conta_agua_router
 from infrastructure.data.bootstrap import init_persistence
 
 
@@ -46,7 +55,10 @@ async def request_context_middleware(request: Request, call_next):
         response: Response = await call_next(request)
     except Exception:
         duration_ms = int((time.perf_counter() - start) * 1000)
-        app_logger.exception("Request failed", extra={"method": method, "path": path, "duration_ms": duration_ms})
+        app_logger.exception(
+            "Request failed",
+            extra={"method": method, "path": path, "duration_ms": duration_ms},
+        )
         set_request_id(None)
         raise
 
@@ -54,11 +66,33 @@ async def request_context_middleware(request: Request, call_next):
     response.headers["X-Request-ID"] = request_id
     app_logger.info(
         "Request completed",
-        extra={"method": method, "path": path, "status_code": response.status_code, "duration_ms": duration_ms},
+        extra={
+            "method": method,
+            "path": path,
+            "status_code": response.status_code,
+            "duration_ms": duration_ms,
+        },
     )
 
     set_request_id(None)
     return response
+
+
+@app.exception_handler(RequestValidationError)
+async def request_validation_exception_handler(request: Request, exc: RequestValidationError):
+    # Sanitiza qualquer valor bytes presente nos detalhes de validação
+    detalhes_seguro = jsonable_encoder(
+        exc.errors(), custom_encoder={bytes: lambda b: b.decode("utf-8", errors="replace")}
+    )
+    app_logger.error(
+        "Validation error",
+        extra={
+            "path": request.url.path,
+            "method": request.method,
+            "errors_count": len(exc.errors()),
+        },
+    )
+    return JSONResponse(status_code=422, content={"detail": detalhes_seguro})
 
 
 @app.get("/scalar", include_in_schema=False)
@@ -73,6 +107,7 @@ async def scalar_html():
 
 # Routers
 app.include_router(conta_luz_router)
+app.include_router(conta_agua_router)
 
 
 # Convenience for running via `python -m api.app`

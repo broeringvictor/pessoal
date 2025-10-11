@@ -1,29 +1,35 @@
 from __future__ import annotations
 
 from pathlib import Path
-from typing import List, Optional, Sequence
+from typing import List, Optional, Sequence, BinaryIO, cast
 import glob
 import tempfile
 import shutil
 from uuid import UUID
 from datetime import datetime
 from decimal import Decimal
+import contextlib
 
 from fastapi import APIRouter, HTTPException, UploadFile, File, Body, Query
 from pydantic import BaseModel
 from sqlalchemy.exc import OperationalError, ProgrammingError
 
-from api.logging_config import logger as app_logger
+from api.configurations.logging_config import logger as app_logger
 from application.conta_luz.handlers import ContaLuzSyncService
+from application.conta_luz.query import ContaLuzQueryService
+from application.conta_luz.dto import ContaLuzOut
+from application.conta_luz.interface import ContaLuzRepositoryPort
 from infrastructure.data.db_context import get_database_session
 from infrastructure.repository.conta_luz.repository import ContaLuzRepository
 
-router = APIRouter(prefix="/conta-luz", tags=["conta-luz"])
+router = APIRouter(prefix="/contas-luz", tags=["contas-luz"])
 
 
 class SyncRequest(BaseModel):
     pdf_paths: Optional[List[str]] = None
-    recursive: bool = True  # permite vasculhar subpastas quando um diretório for informado
+    recursive: bool = (
+        True  # permite vasculhar subpastas quando um diretório for informado
+    )
 
 
 class SyncResult(BaseModel):
@@ -72,7 +78,10 @@ def _expand_to_pdf_files(path_texts: Sequence[str], recursive: bool) -> List[str
             resultados = glob.glob(normalizado, recursive=True)
             for encontrado in sorted(resultados):
                 caminho_encontrado = Path(encontrado)
-                if caminho_encontrado.is_file() and caminho_encontrado.suffix.lower() == ".pdf":
+                if (
+                    caminho_encontrado.is_file()
+                    and caminho_encontrado.suffix.lower() == ".pdf"
+                ):
                     arquivos.append(str(caminho_encontrado.resolve()))
             continue
 
@@ -94,46 +103,26 @@ def _expand_to_pdf_files(path_texts: Sequence[str], recursive: bool) -> List[str
     return unicos
 
 
-@router.get("", response_model=ListaContaLuzResponse)
-def listar_conta_luz(
-    offset: int = Query(0, ge=0, description="Offset para paginação"),
-    limit: int = Query(50, ge=1, le=500, description="Quantidade máxima de itens"),
-    include_deleted: bool = Query(False, description="Incluir registros deletados logicamente"),
-    order_desc: bool = Query(True, description="Ordenar por created_at descendente"),
-) -> ListaContaLuzResponse:
-    try:
-        with get_database_session() as session:
-            repo = ContaLuzRepository(session)
-            entidades = repo.list(offset=offset, limit=limit, include_deleted=include_deleted, order_desc=order_desc)
-            itens: List[ContaLuzItem] = [
-                ContaLuzItem(
-                    id=entidade.id,  # type: ignore[arg-type]
-                    referencia=entidade.referencia,
-                    valor=entidade.valor,  # Decimal
-                    created_at=entidade.created_at,  # type: ignore[arg-type]
-                    updated_at=entidade.updated_at,  # type: ignore[arg-type]
-                    deleted_at=entidade.deleted_at,  # type: ignore[arg-type]
-                )
-                for entidade in entidades
-            ]
-            resposta = ListaContaLuzResponse(items=itens, offset=offset, limit=limit, count=len(itens))
-            app_logger.info(
-                "Listed contas de luz",
-                extra={"offset": offset, "limit": limit, "returned_count": len(itens), "include_deleted": include_deleted},
-            )
-            return resposta
-    except OperationalError as err:
-        app_logger.exception("Database connectivity error during list")
-        raise HTTPException(status_code=503, detail="Database unavailable or unreachable.") from err
-    except ProgrammingError as err:
-        app_logger.exception("Database schema error during list (missing tables?)")
-        raise HTTPException(
-            status_code=500,
-            detail="Database schema missing. Run migrations: 'uv run alembic upgrade head' or set INIT_DB_SCHEMA=1 once.",
-        ) from err
+@router.get("", response_model=List[ContaLuzOut])
+def listar_contas_luz(
+    deslocamento: int = Query(0, ge=0, alias="offset"),
+    limite: int = Query(50, ge=1, le=200, alias="limit"),
+    incluir_deletadas: bool = Query(False, alias="include_deleted"),
+    ordem_descendente: bool = Query(True, alias="order_desc"),
+):
+    with get_database_session() as sessao_banco:
+        repositorio: ContaLuzRepositoryPort = ContaLuzRepository(sessao_banco)
+        servico_consulta = ContaLuzQueryService(repositorio=repositorio)
+        entidades = servico_consulta.listar(
+            offset=deslocamento,
+            limit=limite,
+            include_deleted=incluir_deletadas,
+            order_desc=ordem_descendente,
+        )
+        return [ContaLuzOut.from_entity(entidade) for entidade in entidades]
 
 
-@router.post("/sync-from-pdf", response_model=SyncResult)
+@router.post("/importacoes", response_model=SyncResult)
 def sync_from_pdf(request: SyncRequest) -> SyncResult:
     """
     Varre PDFs de faturas CELESC, encontra referências (mm/yyyy) e cria as ausentes no banco.
@@ -144,7 +133,9 @@ def sync_from_pdf(request: SyncRequest) -> SyncResult:
     pdf_paths: Sequence[str]
     if request.pdf_paths is not None:
         # Remove entradas vazias/branco
-        entradas_validas = [p for p in request.pdf_paths if isinstance(p, str) and p.strip()]
+        entradas_validas = [
+            p for p in request.pdf_paths if isinstance(p, str) and p.strip()
+        ]
         if entradas_validas:
             pdf_paths = _expand_to_pdf_files(entradas_validas, request.recursive)
             app_logger.info(
@@ -166,33 +157,47 @@ def sync_from_pdf(request: SyncRequest) -> SyncResult:
         else:
             # Todas as entradas eram vazias; cai no fallback de assets
             app_logger.info("Empty pdf_paths payload; using default assets fallback")
-            base_dir = Path(__file__).resolve().parents[1]
+            base_dir = Path(__file__).resolve().parents[2]
             assets_dir = base_dir / "core" / "assets"
             if not assets_dir.exists():
-                raise HTTPException(status_code=400, detail=f"Assets directory not found: {assets_dir}")
+                raise HTTPException(
+                    status_code=400, detail=f"Assets directory not found: {assets_dir}"
+                )
             pdf_paths = [str(caminho) for caminho in sorted(assets_dir.glob("*.pdf"))]
             if not pdf_paths:
-                raise HTTPException(status_code=400, detail=f"No PDFs found under {assets_dir}")
-            app_logger.info("Using default assets directory", extra={"pdf_count": len(pdf_paths)})
+                raise HTTPException(
+                    status_code=400, detail=f"No PDFs found under {assets_dir}"
+                )
+            app_logger.info(
+                "Using default assets directory", extra={"pdf_count": len(pdf_paths)}
+            )
     else:
         # fallback: core/assets
-        base_dir = Path(__file__).resolve().parents[1]  # api/ -> raiz do projeto
+        base_dir = Path(__file__).resolve().parents[2]  # api/ -> raiz do projeto
         assets_dir = base_dir / "core" / "assets"
         if not assets_dir.exists():
-            raise HTTPException(status_code=400, detail=f"Assets directory not found: {assets_dir}")
+            raise HTTPException(
+                status_code=400, detail=f"Assets directory not found: {assets_dir}"
+            )
         pdf_paths = [str(caminho) for caminho in sorted(assets_dir.glob("*.pdf"))]
         if not pdf_paths:
-            raise HTTPException(status_code=400, detail=f"No PDFs found under {assets_dir}")
-        app_logger.info("Using default assets directory", extra={"pdf_count": len(pdf_paths)})
+            raise HTTPException(
+                status_code=400, detail=f"No PDFs found under {assets_dir}"
+            )
+        app_logger.info(
+            "Using default assets directory", extra={"pdf_count": len(pdf_paths)}
+        )
 
     try:
         with get_database_session() as session:
-            repositorio = ContaLuzRepository(session)
+            repositorio: ContaLuzRepositoryPort = ContaLuzRepository(session)
             servico = ContaLuzSyncService(repositorio)
             resumo = servico.sync_from_pdfs(pdf_paths)
     except OperationalError as err:
         app_logger.exception("Database connectivity error during sync")
-        raise HTTPException(status_code=503, detail="Database unavailable or unreachable.") from err
+        raise HTTPException(
+            status_code=503, detail="Database unavailable or unreachable."
+        ) from err
     except ProgrammingError as err:
         app_logger.exception("Database schema error during sync (missing tables?)")
         raise HTTPException(
@@ -216,7 +221,7 @@ def sync_from_pdf(request: SyncRequest) -> SyncResult:
     return SyncResult(**resumo)
 
 
-@router.post("/sync-from-upload", response_model=SyncResult)
+@router.post("/importacoes/arquivos", response_model=SyncResult)
 def sync_from_upload(files: List[UploadFile] = File(...)) -> SyncResult:
     """
     Recebe um ou mais PDFs via multipart/form-data e executa a sincronização.
@@ -227,7 +232,9 @@ def sync_from_upload(files: List[UploadFile] = File(...)) -> SyncResult:
            -F "files=@/caminho/para/arquivo2.pdf"
     """
     if not files:
-        raise HTTPException(status_code=400, detail="Envie pelo menos um arquivo PDF em 'files'.")
+        raise HTTPException(
+            status_code=400, detail="Envie pelo menos um arquivo PDF em 'files'."
+        )
 
     caminhos_temporarios: List[str] = []
     arquivos_invalidos: List[str] = []
@@ -235,36 +242,46 @@ def sync_from_upload(files: List[UploadFile] = File(...)) -> SyncResult:
     for arquivo in files:
         nome_original = arquivo.filename or "arquivo_sem_nome.pdf"
         # Checagem superficial de tipo; ainda assim persistimos como .pdf
-        if arquivo.content_type not in {"application/pdf", "application/octet-stream"} and not nome_original.lower().endswith(".pdf"):
+        if arquivo.content_type not in {
+            "application/pdf",
+            "application/octet-stream",
+        } and not nome_original.lower().endswith(".pdf"):
             arquivos_invalidos.append(nome_original)
             continue
         try:
             with tempfile.NamedTemporaryFile(delete=False, suffix=".pdf") as temporario:
-                # Evita carregar tudo em memória; stream para disco
-                shutil.copyfileobj(arquivo.file, temporario)
+                destino_buffer: BinaryIO = cast(BinaryIO, temporario)
+                shutil.copyfileobj(arquivo.file, destino_buffer)
                 caminhos_temporarios.append(temporario.name)
         finally:
-            try:
+            with contextlib.suppress(Exception):
                 arquivo.file.close()
-            except Exception:
-                pass
 
     if arquivos_invalidos and not caminhos_temporarios:
-        raise HTTPException(status_code=400, detail=f"Nenhum PDF válido foi enviado. Inválidos: {arquivos_invalidos}")
+        raise HTTPException(
+            status_code=400,
+            detail=f"Nenhum PDF válido foi enviado. Inválidos: {arquivos_invalidos}",
+        )
 
     app_logger.info(
         "Received uploaded PDFs",
-        extra={"uploaded_count": len(files), "accepted_count": len(caminhos_temporarios), "rejected": arquivos_invalidos},
+        extra={
+            "uploaded_count": len(files),
+            "accepted_count": len(caminhos_temporarios),
+            "rejected": arquivos_invalidos,
+        },
     )
 
     try:
         with get_database_session() as session:
-            repositorio = ContaLuzRepository(session)
+            repositorio: ContaLuzRepositoryPort = ContaLuzRepository(session)
             servico = ContaLuzSyncService(repositorio)
             resumo = servico.sync_from_pdfs(caminhos_temporarios)
     except OperationalError as err:
         app_logger.exception("Database connectivity error during sync")
-        raise HTTPException(status_code=503, detail="Database unavailable or unreachable.") from err
+        raise HTTPException(
+            status_code=503, detail="Database unavailable or unreachable."
+        ) from err
     except ProgrammingError as err:
         app_logger.exception("Database schema error during sync (missing tables?)")
         raise HTTPException(
@@ -272,72 +289,12 @@ def sync_from_upload(files: List[UploadFile] = File(...)) -> SyncResult:
             detail="Database schema missing. Run migrations: 'uv run alembic upgrade head' or set INIT_DB_SCHEMA=1 once.",
         ) from err
     finally:
-        # Limpa os temporários
         for caminho in caminhos_temporarios:
-            try:
+            with contextlib.suppress(OSError):
                 Path(caminho).unlink(missing_ok=True)
-            except Exception:
-                # Não falha a requisição por erro de limpeza
-                pass
 
     app_logger.info(
         "Upload sync completed",
-        extra={
-            "files_processed": resumo.get("files_processed"),
-            "files_failed": resumo.get("files_failed"),
-            "created_count": resumo.get("created"),
-            "skipped_count": resumo.get("skipped"),
-        },
-    )
-
-    return SyncResult(**resumo)
-
-
-@router.post("/sync-from-binary", response_model=SyncResult)
-def sync_from_binary(data: bytes = Body(..., media_type="application/pdf")) -> SyncResult:
-    """
-    Recebe um único PDF como corpo binário (Content-Type: application/pdf) e executa a sincronização.
-
-    Exemplos:
-      curl -X POST "http://localhost:8000/conta-luz/sync-from-binary" \
-           -H "Content-Type: application/pdf" \
-           --data-binary @/caminho/para/fatura.pdf
-
-      PowerShell:
-        Invoke-WebRequest -Uri "http://localhost:8000/conta-luz/sync-from-binary" -Method POST \
-          -InFile "C:\\caminho\\fatura.pdf" -ContentType "application/pdf"
-    """
-    if not data:
-        raise HTTPException(status_code=400, detail="Corpo da requisição vazio. Envie um PDF no corpo (application/pdf).")
-
-    caminho_temporario: Optional[str] = None
-    try:
-        with tempfile.NamedTemporaryFile(delete=False, suffix=".pdf") as temporario:
-            temporario.write(data)
-            caminho_temporario = temporario.name
-
-        with get_database_session() as session:
-            repositorio = ContaLuzRepository(session)
-            servico = ContaLuzSyncService(repositorio)
-            resumo = servico.sync_from_pdfs([caminho_temporario])
-    except OperationalError as err:
-        app_logger.exception("Database connectivity error during sync")
-        raise HTTPException(status_code=503, detail="Database unavailable or unreachable.") from err
-    except ProgrammingError as err:
-        app_logger.exception("Database schema error during sync (missing tables?)")
-        raise HTTPException(
-            status_code=500,
-            detail="Database schema missing. Run migrations: 'uv run alembic upgrade head' or set INIT_DB_SCHEMA=1 once.",
-        ) from err
-    finally:
-        if caminho_temporario:
-            try:
-                Path(caminho_temporario).unlink(missing_ok=True)
-            except Exception:
-                pass
-
-    app_logger.info(
-        "Binary upload sync completed",
         extra={
             "files_processed": resumo.get("files_processed"),
             "files_failed": resumo.get("files_failed"),

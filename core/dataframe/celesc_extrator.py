@@ -13,8 +13,9 @@ from core.entities import ContaLuz
 
 # Porta para inversão de dependência (SOLID - DIP)
 class TabelaPdfExtratora(Protocol):
-    def carregar_tabelas_pdf(self, file_path: Optional[str] = None) -> List[pd.DataFrame]:
-        ...
+    def carregar_tabelas_pdf(
+        self, file_path: Optional[str] = None
+    ) -> List[pd.DataFrame]: ...
 
     def localizar_tabela_com_palavras_chave(
         self,
@@ -23,8 +24,7 @@ class TabelaPdfExtratora(Protocol):
         *,
         normalizar: bool = True,
         exigir_todas: bool = True,
-    ) -> Optional[pd.DataFrame]:
-        ...
+    ) -> Optional[pd.DataFrame]: ...
 
 
 @dataclass(frozen=True)
@@ -112,7 +112,9 @@ class CelescExtrator:
                     if tabela_alvo is None:
                         continue
                     return self._montar_tabela_celesc(tabela_alvo, self.params)
-                except Exception as exc:  # captura erros do tabula/IO para tentar a próxima
+                except (
+                    Exception
+                ) as exc:  # captura erros do tabula/IO para tentar a próxima
                     ultima_excecao = exc
                     continue
 
@@ -122,7 +124,9 @@ class CelescExtrator:
                 "All extraction strategies failed",
                 extra={"pdf": self._caminho_pdf, "error": str(ultima_excecao)},
             )
-        raise ValueError("Tabela com as palavras-chave não foi encontrada no PDF fornecido.")
+        raise ValueError(
+            "Tabela com as palavras-chave não foi encontrada no PDF fornecido."
+        )
 
     # --- Passos do domínio ------------------------------------------------
     def _montar_tabela_celesc(
@@ -136,7 +140,9 @@ class CelescExtrator:
             or params.indice_cabecalho is None
             or params.primeira_linha_dados is None
         ):
-            indice_cabecalho, indice_primeira_linha = self._detectar_indices_cabecalho_e_dados(tabela_bruta)
+            indice_cabecalho, indice_primeira_linha = (
+                self._detectar_indices_cabecalho_e_dados(tabela_bruta)
+            )
         else:
             indice_cabecalho = int(params.indice_cabecalho)
             indice_primeira_linha = int(params.primeira_linha_dados)
@@ -145,18 +151,26 @@ class CelescExtrator:
         dados = self._selecionar_linhas_de_dados(com_cabecalho, indice_primeira_linha)
 
         # Encontrar a coluna composta dinamicamente
-        coluna_composta_normalizada, indices_colunas_consumidas = self._encontrar_coluna_composta(dados)
-        bloco_esquerda = self._decompor_coluna_composta_em_campos(coluna_composta_normalizada)
+        coluna_composta_normalizada, indices_colunas_consumidas = (
+            self._encontrar_coluna_composta(dados)
+        )
+        bloco_esquerda = self._decompor_coluna_composta_em_campos(
+            coluna_composta_normalizada
+        )
 
         # Preservar demais colunas não consumidas
-        colunas_restantes = [i for i in range(dados.shape[1]) if i not in indices_colunas_consumidas]
+        colunas_restantes = [
+            i for i in range(dados.shape[1]) if i not in indices_colunas_consumidas
+        ]
         bloco_direita = dados.iloc[:, colunas_restantes].copy()
 
         tabela_final = pd.concat([bloco_esquerda, bloco_direita], axis=1)
 
         # Limpezas
         if "Data" in tabela_final.columns:
-            tabela_final = tabela_final[~tabela_final["Data"].isna()].reset_index(drop=True)
+            tabela_final = tabela_final[~tabela_final["Data"].isna()].reset_index(
+                drop=True
+            )
 
         tabela_final = self._normalizar_nomes_colunas_alvo(tabela_final)
         tabela_final = self._renomear_total_para_valor_total(tabela_final)
@@ -167,7 +181,9 @@ class CelescExtrator:
     @staticmethod
     def _sem_acentos_minusculo(texto: str) -> str:
         texto_normalizado = unicodedata.normalize("NFKD", texto)
-        texto_sem_acentos = "".join(ch for ch in texto_normalizado if not unicodedata.combining(ch))
+        texto_sem_acentos = "".join(
+            ch for ch in texto_normalizado if not unicodedata.combining(ch)
+        )
         return texto_sem_acentos.lower()
 
     def _detectar_indices_cabecalho_e_dados(
@@ -176,7 +192,9 @@ class CelescExtrator:
         termos_cabecalho = ["data", "documento", "numero", "referencia"]
         try:
             for indice, (_, linha) in enumerate(df.iterrows()):
-                linha_texto_normalizado = self._sem_acentos_minusculo(" ".join(linha.astype(str)))
+                linha_texto_normalizado = self._sem_acentos_minusculo(
+                    " ".join(linha.astype(str))
+                )
                 if all(termo in linha_texto_normalizado for termo in termos_cabecalho):
                     if indice + 1 < len(df):
                         return indice, indice + 1
@@ -186,22 +204,30 @@ class CelescExtrator:
         return fallback
 
     @staticmethod
-    def _aplicar_cabecalho_da_linha(df: pd.DataFrame, indice_cabecalho: int) -> pd.DataFrame:
+    def _aplicar_cabecalho_da_linha(
+        df: pd.DataFrame, indice_cabecalho: int
+    ) -> pd.DataFrame:
         out = df.copy()
         out.columns = out.iloc[indice_cabecalho]
         return out
 
     @staticmethod
-    def _selecionar_linhas_de_dados(df: pd.DataFrame, indice_inicio: int) -> pd.DataFrame:
+    def _selecionar_linhas_de_dados(
+        df: pd.DataFrame, indice_inicio: int
+    ) -> pd.DataFrame:
         return df.iloc[indice_inicio:].reset_index(drop=True).copy()
 
-    def _encontrar_coluna_composta(self, dados: pd.DataFrame) -> Tuple[pd.Series, List[int]]:
+    def _encontrar_coluna_composta(
+        self, dados: pd.DataFrame
+    ) -> Tuple[pd.Series, List[int]]:
         padrao_coluna_composta = re.compile(
             r"^(?P<Data>\d{2}/\d{2}/\d{4})\s+(?P<Documento>\d{4,}-\d+)\s+(?P<N1>\d+)\s+(?P<N2>\d+)$"
         )
 
         def pontuacao_coluna(coluna: pd.Series) -> int:
-            texto_normalizado = coluna.astype(str).str.replace(r"\s+", " ", regex=True).str.strip()
+            texto_normalizado = (
+                coluna.astype(str).str.replace(r"\s+", " ", regex=True).str.strip()
+            )
             mascara_casamento = texto_normalizado.str.match(padrao_coluna_composta)
             return int(mascara_casamento.fillna(False).sum())
 
@@ -211,11 +237,15 @@ class CelescExtrator:
         # Testa colunas individuais
         for indice_coluna in range(quantidade_colunas):
             serie_coluna = dados.iloc[:, indice_coluna]
-            candidatas.append((serie_coluna, [indice_coluna], pontuacao_coluna(serie_coluna)))
+            candidatas.append(
+                (serie_coluna, [indice_coluna], pontuacao_coluna(serie_coluna))
+            )
 
         # Testa combinações col0+col1, col0+col1+col2 (mais comuns)
         if quantidade_colunas >= 2:
-            concat_01 = dados.iloc[:, 0].astype(str) + " " + dados.iloc[:, 1].astype(str)
+            concat_01 = (
+                dados.iloc[:, 0].astype(str) + " " + dados.iloc[:, 1].astype(str)
+            )
             candidatas.append((concat_01, [0, 1], pontuacao_coluna(concat_01)))
         if quantidade_colunas >= 3:
             concat_012 = (
@@ -233,13 +263,18 @@ class CelescExtrator:
 
         # Normaliza a série escolhida
         serie_escolhida_normalizada = (
-            melhor_candidata[0].astype(str).str.replace(r"\s+", " ", regex=True).str.strip()
+            melhor_candidata[0]
+            .astype(str)
+            .str.replace(r"\s+", " ", regex=True)
+            .str.strip()
         )
         return serie_escolhida_normalizada, melhor_candidata[1]
 
     @staticmethod
     def _decompor_coluna_composta_em_campos(coluna: pd.Series) -> pd.DataFrame:
-        texto_normalizado = coluna.astype(str).str.replace(r"\s+", " ", regex=True).str.strip()
+        texto_normalizado = (
+            coluna.astype(str).str.replace(r"\s+", " ", regex=True).str.strip()
+        )
         padrao_coluna_composta = re.compile(
             r"^(?P<Data>\d{2}/\d{2}/\d{4})\s+(?P<Documento>\d{4,}-\d+)\s+(?P<N1>\d+)\s+(?P<N2>\d+)$"
         )
@@ -252,7 +287,9 @@ class CelescExtrator:
             partes["N2"] = partes["N1N2_2"].fillna("")
             extraido = partes[["Data", "Documento", "N1", "N2"]]
 
-        numero_referencia = (extraido["N1"].fillna("") + " " + extraido["N2"].fillna("")).str.strip()
+        numero_referencia = (
+            extraido["N1"].fillna("") + " " + extraido["N2"].fillna("")
+        ).str.strip()
         return pd.DataFrame(
             {
                 "Data": extraido["Data"],
@@ -273,7 +310,10 @@ class CelescExtrator:
                 mapa_renomeio[coluna] = "Referência"
             elif chave_comparacao == "vencimento" and nome_original != "Vencimento":
                 mapa_renomeio[coluna] = "Vencimento"
-            elif chave_comparacao in ("totalapagar", "totalapagarrs") and nome_original != "Total a Pagar (R$)":
+            elif (
+                chave_comparacao in ("totalapagar", "totalapagarrs")
+                and nome_original != "Total a Pagar (R$)"
+            ):
                 mapa_renomeio[coluna] = "Total a Pagar (R$)"
         if mapa_renomeio:
             out = out.rename(columns=mapa_renomeio)
@@ -290,7 +330,10 @@ class CelescExtrator:
             out = out.rename(columns=mapa_renomeio_total)
         if "Valor Total" in out.columns:
             out["Valor Total"] = (
-                out["Valor Total"].astype(str).str.replace("R$", "", regex=False).str.strip()
+                out["Valor Total"]
+                .astype(str)
+                .str.replace("R$", "", regex=False)
+                .str.strip()
             )
         return out
 
@@ -337,6 +380,7 @@ class CelescExtrator:
 
 # --- API de módulo (compatível) -------------------------------------------
 
+
 def extrair_tabela_celesc(
     caminho_pdf: str,
     params: ParametrosExtracao | None = None,
@@ -357,6 +401,7 @@ def extrair_contas_luz(caminho_pdf: str) -> List[ContaLuz]:
 
 
 # Validação e Runner de alto nível
+
 
 def validar_tabela_celesc(df: pd.DataFrame) -> None:
     colunas_requeridas = {
@@ -411,23 +456,25 @@ if __name__ == "__main__":
 
     # Diretório com todas as faturas (sempre relativo a este arquivo)
     base_dir = Path(__file__).resolve().parent  # core/dataframe-wrapper
-    assets_dir = base_dir.parent / "assets"     # core/assets
+    assets_dir = base_dir.parent / "assets"  # core/assets
 
     # Busca somente no nível superior de core/assets
     pdfs = list(assets_dir.glob("*.pdf"))
-    
+
     if not pdfs:
         print(f"Nenhum PDF encontrado em: {assets_dir}")
     else:
         print(f"Encontrados {len(pdfs)} PDF(s) para processar em {assets_dir}:")
-        
+
         for pdf_path in sorted(pdfs):
-            print(f"\n{'='*50}")
+            print(f"\n{'=' * 50}")
             print(f"Processando: {pdf_path.name}")
-            print(f"{'='*50}")
-            
+            print(f"{'=' * 50}")
+
             try:
-                run_extraction(str(pdf_path), out_csv=None, imprimir_resumo=True, validar=True)
+                run_extraction(
+                    str(pdf_path), out_csv=None, imprimir_resumo=True, validar=True
+                )
             except Exception as e:
                 print(f"ERRO ao processar {pdf_path.name}: {e}")
                 continue

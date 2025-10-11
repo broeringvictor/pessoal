@@ -23,7 +23,9 @@ class ReferenciaMensal:
         # Busca MM/YYYY em qualquer posição
         match = re.search(r"\b(\d{2})/(\d{4})\b", texto)
         if not match:
-            raise ValueError(f"Referência inválida: '{self.referencia}'. Esperado MM/YYYY.")
+            raise ValueError(
+                f"Referência inválida: '{self.referencia}'. Esperado MM/YYYY."
+            )
         mes = int(match.group(1))
         ano = int(match.group(2))
         if mes < 1 or mes > 12:
@@ -41,4 +43,3 @@ class ReferenciaMensal:
 
     def as_tuple(self) -> tuple[int, int]:
         return (self.mes, self.ano)
-

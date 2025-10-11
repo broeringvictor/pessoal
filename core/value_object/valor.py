@@ -26,7 +26,9 @@ class Valor(ValorMonetario):
 
     # Impede construção direta; obrigatoriedade de usar fábricas da classe
     def __init__(self, *_args, **_kwargs) -> None:  # type: ignore[override]
-        raise TypeError("Use as fábricas da classe (ex.: Valor.criar_de_bruto, Valor.criar_de_decimal).")
+        raise TypeError(
+            "Use as fábricas da classe (ex.: Valor.criar_de_bruto, Valor.criar_de_decimal)."
+        )
 
     # Construtor interno para uso exclusivo das fábricas
     @classmethod

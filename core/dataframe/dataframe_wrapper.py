@@ -5,6 +5,7 @@ import unicodedata
 from dataclasses import dataclass
 from typing import Iterable, List, Optional
 
+
 @dataclass
 class DataFrameWrapper:
     file_path: Optional[str] = None
@@ -14,7 +15,9 @@ class DataFrameWrapper:
     lattice: bool = False
     guess: bool = True  # deixa o tabula tentar detectar áreas automaticamente
 
-    def carregar_tabelas_pdf(self, file_path: Optional[str] = None) -> List[pd.DataFrame]:
+    def carregar_tabelas_pdf(
+        self, file_path: Optional[str] = None
+    ) -> List[pd.DataFrame]:
         """Carrega todas as tabelas de um PDF conforme as opções configuradas."""
         path = file_path or self.file_path
         if not path:
@@ -38,7 +41,9 @@ class DataFrameWrapper:
 
         return [tabela for tabela in tabelas if isinstance(tabela, pd.DataFrame)]
 
-    def carregar_tabelas_csv(self, file_path: Optional[str] = None) -> List[pd.DataFrame]:
+    def carregar_tabelas_csv(
+        self, file_path: Optional[str] = None
+    ) -> List[pd.DataFrame]:
         """Carrega tabela de um arquivo CSV usando pandas."""
         path = file_path or self.file_path
         if not path:
@@ -49,7 +54,9 @@ class DataFrameWrapper:
         try:
             # Usa pandas para ler CSV, não tabula (que é específico para PDFs)
             dataframe_csv = pd.read_csv(path)
-            return [dataframe_csv]  # Retorna como lista para consistência com a interface
+            return [
+                dataframe_csv
+            ]  # Retorna como lista para consistência com a interface
         except Exception as e:
             raise RuntimeError(
                 "Falha ao ler o arquivo CSV. Verifique o formato e encoding do arquivo."
@@ -66,7 +73,9 @@ class DataFrameWrapper:
         """Retorna a primeira tabela cujo texto contenha as palavras-chave."""
         lista_palavras = list(palavras_chave)
         if normalizar:
-            lista_palavras = [self._sem_acentos_minusculo(palavra) for palavra in lista_palavras]
+            lista_palavras = [
+                self._sem_acentos_minusculo(palavra) for palavra in lista_palavras
+            ]
 
         for tabela in tabelas:
             for _, linha in tabela.iterrows():
@@ -86,17 +95,29 @@ class DataFrameWrapper:
     def _sem_acentos_minusculo(texto: str) -> str:
         texto_normalizado = unicodedata.normalize("NFKD", texto)
         texto_sem_acentos = "".join(
-            caractere for caractere in texto_normalizado if not unicodedata.combining(caractere)
+            caractere
+            for caractere in texto_normalizado
+            if not unicodedata.combining(caractere)
         )
         return texto_sem_acentos.lower()
 
+
 if __name__ == "__main__":
+
     def samae():
         try:
             pdf_agua = os.path.normpath(
-                os.path.join(os.path.dirname(__file__), "..", "assets", "samae", "segunda-via.pdf")
+                os.path.join(
+                    os.path.dirname(__file__),
+                    "..",
+                    "assets",
+                    "samae",
+                    "segunda-via.pdf",
+                )
             )
-            wrapper = DataFrameWrapper(file_path=pdf_agua, pages="all", multiple_tables=True, stream=True)
+            wrapper = DataFrameWrapper(
+                file_path=pdf_agua, pages="all", multiple_tables=True, stream=True
+            )
             dfs = wrapper.carregar_tabelas_pdf()
             for cada_tabela in dfs:
                 print(cada_tabela)
@@ -110,7 +131,14 @@ if __name__ == "__main__":
     def csv():
         try:
             caminho_csv_inter = os.path.normpath(
-                os.path.join(os.path.dirname(__file__), "..", "assets", "cartao", "inter", "fatura-inter-2024-08.csv")
+                os.path.join(
+                    os.path.dirname(__file__),
+                    "..",
+                    "assets",
+                    "cartao",
+                    "inter",
+                    "fatura-inter-2024-08.csv",
+                )
             )
             wrapper_inter = DataFrameWrapper(file_path=caminho_csv_inter)
             dataframes = wrapper_inter.carregar_tabelas_csv()
