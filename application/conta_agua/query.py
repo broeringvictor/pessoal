@@ -5,7 +5,7 @@ from application.conta_agua.interface import ContaAguaRepositoryPort
 
 
 @dataclass(slots=True)
-class ContaAguaQueryService:
+class ContaAguaQuery:
     repositorio: ContaAguaRepositoryPort
 
     def listar(

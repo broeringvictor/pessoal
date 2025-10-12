@@ -12,7 +12,7 @@ from sqlalchemy.exc import OperationalError, ProgrammingError
 
 from api.configurations.logging_config import logger as app_logger
 from application.conta_agua.handlers import ContaAguaSyncService
-from application.conta_agua.query import ContaAguaQueryService
+from application.conta_agua.query import ContaAguaQuery
 from application.conta_agua.dto import ContaAguaOut
 from application.conta_agua.interface import ContaAguaRepositoryPort
 from infrastructure.data.db_context import get_database_session
@@ -85,7 +85,7 @@ def listar_contas_agua(
         repositorio: ContaAguaRepositoryPort = cast(
             ContaAguaRepositoryPort, ContaAguaRepository(sessao_banco)
         )
-        servico_consulta = ContaAguaQueryService(repositorio=repositorio)
+        servico_consulta = ContaAguaQuery(repositorio=repositorio)
         entidades = servico_consulta.listar(
             offset=deslocamento,
             limit=limite,
