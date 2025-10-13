@@ -1,13 +1,9 @@
 from dataclasses import dataclass
-from typing import Sequence
 from core.entities.conta_agua import ContaAgua
 from application.conta_agua.interface import ContaAguaRepositoryPort
-
-
 @dataclass(slots=True)
 class ContaAguaQuery:
     repositorio: ContaAguaRepositoryPort
-
     def listar(
         self,
         *,
@@ -15,11 +11,10 @@ class ContaAguaQuery:
         limit: int = 50,
         include_deleted: bool = False,
         order_desc: bool = True,
-    ) -> Sequence[ContaAgua]:
+    ) -> list[ContaAgua]:
         return self.repositorio.list(
             offset=offset,
             limit=limit,
             include_deleted=include_deleted,
             order_desc=order_desc,
         )
-

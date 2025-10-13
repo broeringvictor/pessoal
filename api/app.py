@@ -15,7 +15,7 @@ from api.configurations.logging_config import (
     logger as app_logger,
 )
 from api.endpoints.conta_luz import router as conta_luz_router
-from api.endpoints.conta_agua import router as conta_agua_router
+from api.endpoints.conta_agua_endpoints import router as conta_agua_router
 from infrastructure.data.bootstrap import init_persistence
 
 
