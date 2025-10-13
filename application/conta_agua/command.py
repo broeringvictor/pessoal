@@ -1,6 +1,6 @@
 from __future__ import annotations
 from decimal import Decimal
-from typing import Optional
+from typing import Optional, List
 from uuid import UUID
 
 from fastapi import UploadFile
@@ -9,7 +9,7 @@ from application.conta_agua.response import ContaAguaOut
 
 class ImportarContaAguaCommand(BaseModel):
     """Schema de entrada para importar uma ContaAgua a partir de um arquivo PDF."""
-    arquivo_pdf: UploadFile = Field(..., description="Arquivo PDF contendo a conta de água.")
+    caminhos_arquivos_pdf: List[str]
 
 class AtualizarContaAguaCommand(BaseModel):
     """Schema de entrada para atualizar parcialmente uma ContaAgua existente."""

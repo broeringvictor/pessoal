@@ -1,10 +1,7 @@
 from __future__ import annotations
 
 from pathlib import Path
-from typing import List, Optional, Sequence, cast, BinaryIO
-import glob
-import tempfile
-import shutil
+from typing import List, cast
 import contextlib
 from fastapi import APIRouter, HTTPException, Query, UploadFile, File
 from pydantic import BaseModel
@@ -18,19 +15,9 @@ from application.shared.response import Response
 from core.entities.conta_agua import ContaAgua
 from infrastructure.data.db_context import get_database_session
 from infrastructure.repository.conta_agua.repository import ContaAguaRepository
+from api.Shared.upload_pdf import UploadPDF
 
 router = APIRouter(prefix="/contas-agua", tags=["contas-agua"]) 
-
-class ImportarContaAguaCommand(BaseModel):
-    """Comando de aplicação para importar contas de água a partir de PDFs temporários."""
-    caminhos_arquivos_pdf: List[str]
-
-def _normalize_path_text(path_text: str) -> str:
-    return path_text.replace("\\", "/")
-
-
-def _has_wildcards(texto: str) -> bool:
-    return any(sinal in texto for sinal in ("*", "?", "["))
 
 
 
@@ -59,7 +46,7 @@ def importacoes_por_arquivos(files: List[UploadFile] = File(...)) -> Response:
     if not files:
         raise HTTPException(status_code=400, detail="Envie pelo menos um arquivo PDF em 'files'.")
 
-    caminhos_temporarios, arquivos_invalidos = _persistir_uploads_em_temporarios(files)
+    caminhos_temporarios, arquivos_invalidos = UploadPDF.persistir_uploads_em_temporarios(files)
 
     if arquivos_invalidos and not caminhos_temporarios:
         raise HTTPException(
@@ -77,7 +64,7 @@ def importacoes_por_arquivos(files: List[UploadFile] = File(...)) -> Response:
     )
 
     try:
-        resumo = _sincronizar_contas_a_partir_de_pdfs(caminhos_temporarios)
+        resumo = UploadPDF.sincronizar_contas_a_partir_de_pdfs(caminhos_temporarios)
     finally:
         for caminho in caminhos_temporarios:
             with contextlib.suppress(OSError):
