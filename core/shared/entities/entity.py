@@ -5,7 +5,23 @@ from datetime import datetime, timezone
 from typing import ClassVar, Optional
 import uuid
 
-import uuid7
+# Gerador resiliente de UUIDv7: tenta 'uuid7', depois 'uuid-extensions'
+try:
+    import uuid7 as _uuid7_lib  # type: ignore
+
+    def gerar_uuidv7() -> uuid.UUID:
+        return _uuid7_lib.uuid7()
+except Exception:  # pragma: no cover - fallback
+    try:
+        import uuid_extensions as _uuidext_lib  # type: ignore
+
+        def gerar_uuidv7() -> uuid.UUID:  # type: ignore[no-redef]
+            return _uuidext_lib.uuid7()
+    except Exception as fallback_exc:  # pragma: no cover - last resort
+        def gerar_uuidv7() -> uuid.UUID:  # type: ignore[no-redef]
+            raise ImportError(
+                "Nenhuma implementação de UUIDv7 encontrada. Instale 'uuid7' ou 'uuid-extensions'."
+            ) from fallback_exc
 
 
 @dataclass(kw_only=True)
@@ -13,7 +29,7 @@ class Entity:
     """Entidade base: gera UUIDv7 e created_at (UTC) automaticamente ao instanciar."""
 
     # Identidade baseada em tempo (UUIDv7)
-    id: uuid.UUID = field(init=False, default_factory=uuid7.uuid7)
+    id: uuid.UUID = field(init=False, default_factory=gerar_uuidv7)
 
     # Auditoria básica
     created_at: datetime = field(init=False, default_factory=lambda: datetime.now(timezone.utc))
@@ -28,7 +44,7 @@ class Entity:
     def __post_init__(self) -> None:
         # Garante inicialização mesmo quando subclasses definem __init__ customizado
         if not isinstance(getattr(self, "id", None), uuid.UUID):
-            self.id = uuid7.uuid7()
+            self.id = gerar_uuidv7()
         if getattr(self, "created_at", None) is None:
             self.created_at = datetime.now(timezone.utc)
 
