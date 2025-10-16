@@ -1,17 +1,18 @@
 from __future__ import annotations
 
-from typing import Iterable, Set, List
+from typing import Iterable, Set
 from sqlalchemy import select, asc, desc
 from sqlalchemy.orm import Session
 import logging
 
+from application.conta_luz.irepository import ContaLuzRepositoryPort
 from core.entities.conta_luz import ContaLuz
 from infrastructure.data.mappings import conta_luz_table
 
 _logger = logging.getLogger("pessoal.infrastructure.repository.conta_luz")
 
 
-class ContaLuzRepository:
+class ContaLuzRepository(ContaLuzRepositoryPort):
     """Repositório de persistência para ContaLuz baseado em SQLAlchemy."""
 
     def __init__(self, session: Session) -> None:
@@ -29,12 +30,11 @@ class ContaLuzRepository:
 
     def add_many(self, contas: Iterable[ContaLuz]) -> int:
         """Adiciona várias entidades ContaLuz e retorna a quantidade inserida."""
-        contador_inseridos = 0
-        for entidade in contas:
-            self._session.add(entidade)
-            contador_inseridos += 1
-        _logger.info("Queued entities to insert", extra={"count": contador_inseridos})
-        return contador_inseridos
+        contas_list = list(contas)
+        self._session.add_all(contas_list)
+        count = len(contas_list)
+        _logger.info("Queued entities to insert", extra={"count": count})
+        return count
 
     def list(
         self,
@@ -43,7 +43,7 @@ class ContaLuzRepository:
         limit: int = 50,
         include_deleted: bool = False,
         order_desc: bool = True,
-    ) -> List[ContaLuz]:
+    ) -> list[ContaLuz]:
         """Lista entidades ContaLuz paginadas, ordenadas por created_at."""
         consulta = select(ContaLuz)
         if not include_deleted:
@@ -65,3 +65,8 @@ class ContaLuzRepository:
             },
         )
         return resultados
+
+    def put(self, conta: ContaLuz) -> ContaLuz:
+        merged = self._session.merge(conta)
+        _logger.info("Queued power entity for upsert", extra={"id": merged.id})
+        return merged

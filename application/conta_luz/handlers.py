@@ -6,7 +6,7 @@ import logging
 
 from core.entities.conta_luz import ContaLuz
 from core.dataframe.celesc_extrator import extrair_contas_luz
-from .interface import ContaLuzRepositoryPort
+from .irepository import ContaLuzRepositoryPort
 
 
 _logger = logging.getLogger("pessoal.application.conta_luz")

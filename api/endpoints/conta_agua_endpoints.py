@@ -4,11 +4,8 @@ from pathlib import Path
 from typing import List, cast
 import contextlib
 from fastapi import APIRouter, HTTPException, Query, UploadFile, File
-from pydantic import BaseModel
-from sqlalchemy.exc import OperationalError, ProgrammingError
 
 from api.configurations.logging_config import logger as app_logger
-from application.conta_agua.handlers import ContaAguaSyncService
 from application.conta_agua.query import ContaAguaQuery
 from application.conta_agua.response import ContaAguaOut
 from application.shared.response import Response
@@ -40,7 +37,7 @@ def listar_contas_agua(
         )
         return [ContaAguaOut.from_entity(entidade) for entidade in entidades]
 
-@router.post("/importacoes", response_model=Response)
+@router.post("/pdfs", response_model=Response)
 def importacoes_por_arquivos(files: List[UploadFile] = File(...)) -> Response:
     """Recebe PDFs via multipart, delega ao caso de uso e retorna um envelope Response."""
     if not files:

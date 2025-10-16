@@ -42,6 +42,8 @@ conta_agua_table = Table(
     Column("valor", Numeric(12, 2), nullable=False),
 )
 
+entradas
+
 
 # --- Mapping bootstrap ---
 def start_mappers() -> None:

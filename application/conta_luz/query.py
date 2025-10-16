@@ -1,7 +1,6 @@
 from dataclasses import dataclass
-from typing import Sequence
 from core.entities.conta_luz import ContaLuz
-from application.conta_luz.interface import ContaLuzRepositoryPort
+from application.conta_luz.irepository import ContaLuzRepositoryPort
 
 
 @dataclass(slots=True)
@@ -15,7 +14,7 @@ class ContaLuzQueryService:
         limit: int = 50,
         include_deleted: bool = False,
         order_desc: bool = True,
-    ) -> Sequence[ContaLuz]:
+    ) -> list[ContaLuz]:
         return self.repositorio.list(
             offset=offset,
             limit=limit,

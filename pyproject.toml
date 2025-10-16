@@ -19,6 +19,7 @@ dependencies = [
     "python-dotenv>=1.0.1",
     "alembic>=1.13.2",
     "scalar-fastapi>=1.4.3",
+    "uuid7>=0.1.0",
 ]
 
 [tool.pytest.ini_options]

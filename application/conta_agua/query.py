@@ -1,6 +1,6 @@
 from dataclasses import dataclass
 from core.entities.conta_agua import ContaAgua
-from application.conta_agua.interface import ContaAguaRepositoryPort
+from application.conta_agua.irepository import ContaAguaRepositoryPort
 @dataclass(slots=True)
 class ContaAguaQuery:
     repositorio: ContaAguaRepositoryPort

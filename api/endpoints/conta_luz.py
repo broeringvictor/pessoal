@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 from pathlib import Path
-from typing import List, Optional, Sequence, BinaryIO, cast
+from typing import List, Optional, Sequence, cast
 import glob
 import tempfile
 import shutil
@@ -10,15 +10,15 @@ from datetime import datetime
 from decimal import Decimal
 import contextlib
 
-from fastapi import APIRouter, HTTPException, UploadFile, File, Body, Query
+from fastapi import APIRouter, HTTPException, UploadFile, File, Query
 from pydantic import BaseModel
 from sqlalchemy.exc import OperationalError, ProgrammingError
 
 from api.configurations.logging_config import logger as app_logger
 from application.conta_luz.handlers import ContaLuzSyncService
 from application.conta_luz.query import ContaLuzQueryService
-from application.conta_luz.dto import ContaLuzOut
-from application.conta_luz.interface import ContaLuzRepositoryPort
+from application.conta_luz.response import ContaLuzOut
+from application.conta_luz.irepository import ContaLuzRepositoryPort
 from infrastructure.data.db_context import get_database_session
 from infrastructure.repository.conta_luz.repository import ContaLuzRepository
 
@@ -111,7 +111,9 @@ def listar_contas_luz(
     ordem_descendente: bool = Query(True, alias="order_desc"),
 ):
     with get_database_session() as sessao_banco:
-        repositorio: ContaLuzRepositoryPort = ContaLuzRepository(sessao_banco)
+        repositorio: ContaLuzRepositoryPort = cast(
+            ContaLuzRepositoryPort, ContaLuzRepository(sessao_banco)
+        )
         servico_consulta = ContaLuzQueryService(repositorio=repositorio)
         entidades = servico_consulta.listar(
             offset=deslocamento,
@@ -190,7 +192,9 @@ def sync_from_pdf(request: SyncRequest) -> SyncResult:
 
     try:
         with get_database_session() as session:
-            repositorio: ContaLuzRepositoryPort = ContaLuzRepository(session)
+            repositorio: ContaLuzRepositoryPort = cast(
+                ContaLuzRepositoryPort, ContaLuzRepository(session)
+            )
             servico = ContaLuzSyncService(repositorio)
             resumo = servico.sync_from_pdfs(pdf_paths)
     except OperationalError as err:
@@ -250,8 +254,7 @@ def sync_from_upload(files: List[UploadFile] = File(...)) -> SyncResult:
             continue
         try:
             with tempfile.NamedTemporaryFile(delete=False, suffix=".pdf") as temporario:
-                destino_buffer: BinaryIO = cast(BinaryIO, temporario)
-                shutil.copyfileobj(arquivo.file, destino_buffer)
+                shutil.copyfileobj(arquivo.file, temporario)
                 caminhos_temporarios.append(temporario.name)
         finally:
             with contextlib.suppress(Exception):
@@ -274,7 +277,9 @@ def sync_from_upload(files: List[UploadFile] = File(...)) -> SyncResult:
 
     try:
         with get_database_session() as session:
-            repositorio: ContaLuzRepositoryPort = ContaLuzRepository(session)
+            repositorio: ContaLuzRepositoryPort = cast(
+                ContaLuzRepositoryPort, ContaLuzRepository(session)
+            )
             servico = ContaLuzSyncService(repositorio)
             resumo = servico.sync_from_pdfs(caminhos_temporarios)
     except OperationalError as err:

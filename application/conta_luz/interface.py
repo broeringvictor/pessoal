@@ -1,17 +1,3 @@
-from typing import Iterable, Protocol, Sequence
-from core.entities.conta_luz import ContaLuz
+# Compat shim: reexport the repository port from irepository to avoid breaking old imports.
+from .irepository import ContaLuzRepositoryPort  # noqa: F401
 
-
-class ContaLuzRepositoryPort(Protocol):
-    def list_existing_references(self) -> set[str]: ...
-
-    def add_many(self, contas: Iterable[ContaLuz]) -> int: ...
-
-    def list(
-        self,
-        *,
-        offset: int = 0,
-        limit: int = 50,
-        include_deleted: bool = False,
-        order_desc: bool = True,
-    ) -> Sequence[ContaLuz]: ...

@@ -6,7 +6,7 @@ import logging
 
 from core.entities.conta_agua import ContaAgua
 from core.dataframe.samae_extrator import obter_tabela_samae
-from .interface import ContaAguaRepositoryPort
+from .irepository import ContaAguaRepositoryPort
 
 
 _logger = logging.getLogger("pessoal.application.conta_agua")
