@@ -12,8 +12,8 @@ from sqlalchemy import (
 from sqlalchemy.orm import registry
 from sqlalchemy.dialects.postgresql import UUID as PG_UUID
 
-from core.entities.conta_luz import ContaLuz
-from core.entities.conta_agua import ContaAgua
+from core.entities.expenses.conta_luz import ContaLuz
+from core.entities.expenses.conta_agua import ContaAgua
 
 # Dedicated registry/metadata for infrastructure mappings (core stays framework-agnostic)
 mapper_registry = registry()

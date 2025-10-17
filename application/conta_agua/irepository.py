@@ -1,7 +1,7 @@
 from __future__ import annotations
 import uuid
 from typing import Protocol, Iterable
-from core.entities.conta_agua import ContaAgua
+from core.entities.expenses.conta_agua import ContaAgua
 class ContaAguaRepositoryPort(Protocol):
     """Contrato de persistência para operações de ContaAgua (DI)."""
     def get_conta_agua(self, conta_agua_id: uuid.UUID) -> ContaAgua | None: ...

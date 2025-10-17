@@ -4,7 +4,7 @@ from decimal import Decimal
 from pydantic import BaseModel
 
 from application.shared.response import Response
-from core.entities.conta_luz import ContaLuz
+from core.entities.expenses.conta_luz import ContaLuz
 
 
 class ContaLuzOut(BaseModel):

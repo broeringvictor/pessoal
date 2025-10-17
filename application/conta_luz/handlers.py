@@ -4,7 +4,7 @@ from dataclasses import dataclass
 from typing import Sequence
 import logging
 
-from core.entities.conta_luz import ContaLuz
+from core.entities.expenses.conta_luz import ContaLuz
 from core.dataframe.celesc_extrator import extrair_contas_luz
 from .irepository import ContaLuzRepositoryPort
 

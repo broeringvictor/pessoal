@@ -1,5 +1,5 @@
 from dataclasses import dataclass
-from core.entities.conta_luz import ContaLuz
+from core.entities.expenses.conta_luz import ContaLuz
 from application.conta_luz.irepository import ContaLuzRepositoryPort
 
 

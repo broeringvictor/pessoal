@@ -4,7 +4,7 @@ from dataclasses import dataclass
 from typing import Sequence
 import logging
 
-from core.entities.conta_agua import ContaAgua
+from core.entities.expenses.conta_agua import ContaAgua
 from core.dataframe.samae_extrator import obter_tabela_samae
 from .irepository import ContaAguaRepositoryPort
 

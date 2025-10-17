@@ -2,7 +2,7 @@ from dataclasses import dataclass, field
 from datetime import date, datetime
 from decimal import Decimal
 from typing import Any, Optional, Union
-from uuid6 import UUID
+from uuid import UUID
 
 from core.shared.entities import Entity
 from core.value_object import (
@@ -22,7 +22,7 @@ class Transaction(Entity):
 
     descricao: Descricao 
     data_evento: DataEvento
-    valor_monetario: Valor  # Removida opcionalidade
+    valor: Valor  # Removida opcionalidade
     tipo: TransactionType = field(
         default_factory=lambda: TransactionType.criar_de_nome("ENTRADA")
     )
@@ -32,13 +32,13 @@ class Transaction(Entity):
         *,
         descricao: Descricao,
         data_evento: DataEvento,
-        valor_monetario: Valor,  # Não é mais opcional
+        valor: Valor,  # Não é mais opcional
         tipo: TransactionType
     ) -> None:
         # Atribui campos de domínio
         self.descricao = descricao
         self.data_evento = data_evento
-        self.valor_monetario = valor_monetario
+        self.valor = valor
         self.tipo = tipo if isinstance(tipo, TransactionType) and tipo is not None else TransactionType.criar_de_nome("ENTRADA")
         # Inicializa campos de auditoria/identidade
         Entity.__post_init__(self)
@@ -47,13 +47,13 @@ class Transaction(Entity):
     @classmethod
     def criar(
         cls,
-        descricao_transacao: str,
+        descricao: str,
         texto_data_evento: str,
         valor_monetario: Union[str, int, float, Decimal],  # Obrigatório
         tipo: Optional[Union[int, str, TransactionType]] = None,
     ) -> "Transaction":
         
-        descricao_vo = Descricao.criar_de_texto(descricao_transacao)
+        descricao_vo = Descricao.criar_de_texto(descricao)
         data_vo = DataEvento.criar_de_texto(texto_data_evento)
         valor_vo = valor_monetario if isinstance(valor_monetario, Valor) else Valor.criar_de_bruto(valor_monetario)
         tipo_vo = (
@@ -68,7 +68,7 @@ class Transaction(Entity):
         return cls(
             descricao=descricao_vo,
             data_evento=data_vo,
-            valor_monetario=valor_vo,
+            valor=valor_vo,
             tipo=tipo_vo,
         )
 
@@ -77,7 +77,7 @@ class Transaction(Entity):
     def reconstituir(
         cls,
         identificador: UUID,
-        descricao_transacao: str,
+        descricao: str,
         data_evento: Union[str, date, datetime],
         valor_monetario: Union[Valor, str, int, float, Decimal],  # Obrigatório
         tipo: Optional[Union[int, str, TransactionType]],
@@ -92,7 +92,7 @@ class Transaction(Entity):
         )
 
         # Descrição
-        vo_desc = Descricao.criar_de_texto(descricao_transacao)
+        vo_desc = Descricao.criar_de_texto(descricao)
 
         # Valor monetário (obrigatório)
         vo_valor = (
@@ -112,7 +112,7 @@ class Transaction(Entity):
         instancia = cls(
             descricao=vo_desc,
             data_evento=vo_data,
-            valor_monetario=vo_valor,
+            valor=vo_valor,
             tipo=vo_tipo,
         )
         # Ajusta campos de identidade/auditoria
@@ -132,7 +132,7 @@ class Transaction(Entity):
         """Atualiza todos os campos da transação."""
         self.descricao = Descricao.criar_de_texto(descricao_transacao)
         self.data_evento = DataEvento.criar_de_texto(texto_data_evento)
-        self.valor_monetario = (
+        self.valor = (
             valor_monetario
             if isinstance(valor_monetario, Valor)
             else Valor.criar_de_bruto(valor_monetario)
@@ -151,20 +151,20 @@ class Transaction(Entity):
     # CRUD - Patch (atualização parcial)
     def patch(
         self,
-        descricao_transacao: Optional[str] = None,
+        descricao: Optional[str] = None,
         texto_data_evento: Optional[str] = None,
         valor_monetario: Optional[Union[Valor, str, int, float, Decimal]] = None,
         tipo: Optional[Union[int, str, TransactionType]] = None,
     ) -> None:
         """Atualiza apenas os campos informados (patch)."""
-        if descricao_transacao is not None:
-            self.descricao = Descricao.criar_de_texto(descricao_transacao)
+        if descricao is not None:
+            self.descricao = Descricao.criar_de_texto(descricao)
         
         if texto_data_evento is not None:
             self.data_evento = DataEvento.criar_de_texto(texto_data_evento)
         
         if valor_monetario is not None:
-            self.valor_monetario = (
+            self.valor = (
                 valor_monetario
                 if isinstance(valor_monetario, Valor)
                 else Valor.criar_de_bruto(valor_monetario)
@@ -188,10 +188,10 @@ class Transaction(Entity):
     def como_registro_banco(self) -> dict[str, Any]:
         return {
             "identificador": self.id,
-            "descricao_transacao": self.descricao.para_banco(),
+            "descricao": self.descricao.para_banco(),
             "data_evento": self.data_evento.para_banco(),  # date (YYYY-MM-DD)
-            "valor_monetario_centavos": self.valor_monetario.to_centavos(),
-            "tipo": self.tipo.codigo if hasattr(self.tipo, 'codigo') else str(self.tipo),
+            "valor_monetario_centavos": self.valor.to_centavos(),
+            "tipo": self.tipo.para_banco(),
             "criado_em": self.created_at,
             "atualizado_em": self.updated_at,
             "deletado_em": self.deleted_at,

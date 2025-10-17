@@ -6,7 +6,7 @@ from sqlalchemy.orm import Session
 import logging
 
 from application.conta_luz.irepository import ContaLuzRepositoryPort
-from core.entities.conta_luz import ContaLuz
+from core.entities.expenses.conta_luz import ContaLuz
 from infrastructure.data.mappings import conta_luz_table
 
 _logger = logging.getLogger("pessoal.infrastructure.repository.conta_luz")

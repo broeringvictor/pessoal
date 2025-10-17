@@ -6,7 +6,7 @@ from typing import Iterable
 from sqlalchemy import asc, desc, select
 from sqlalchemy.orm import Session
 from application.conta_agua.irepository import ContaAguaRepositoryPort
-from core.entities.conta_agua import ContaAgua
+from core.entities.expenses.conta_agua import ContaAgua
 from infrastructure.data.mappings import conta_agua_table
 _logger = logging.getLogger("pessoal.infrastructure.repository.conta_agua")
 class ContaAguaRepository(ContaAguaRepositoryPort):

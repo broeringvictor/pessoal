@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 from typing import Protocol, Iterable
-from core.entities.conta_luz import ContaLuz
+from core.entities.expenses.conta_luz import ContaLuz
 
 
 class ContaLuzRepositoryPort(Protocol):

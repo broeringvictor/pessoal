@@ -1,5 +1,5 @@
 from dataclasses import dataclass
-from core.entities.conta_agua import ContaAgua
+from core.entities.expenses.conta_agua import ContaAgua
 from application.conta_agua.irepository import ContaAguaRepositoryPort
 @dataclass(slots=True)
 class ContaAguaQuery:

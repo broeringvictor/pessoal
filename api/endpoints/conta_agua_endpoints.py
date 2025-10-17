@@ -9,7 +9,7 @@ from api.configurations.logging_config import logger as app_logger
 from application.conta_agua.query import ContaAguaQuery
 from application.conta_agua.response import ContaAguaOut
 from application.shared.response import Response
-from core.entities.conta_agua import ContaAgua
+from core.entities.expenses.conta_agua import ContaAgua
 from infrastructure.data.db_context import get_database_session
 from infrastructure.repository.conta_agua.repository import ContaAguaRepository
 from api.Shared.upload_pdf import UploadPDF

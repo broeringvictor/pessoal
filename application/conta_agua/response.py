@@ -1,10 +1,9 @@
 from __future__ import annotations
 
 from decimal import Decimal
-from pydantic import BaseModel
 
 from application.shared.response import Response
-from core.entities.conta_agua import ContaAgua
+from core.entities.expenses.conta_agua import ContaAgua
 
 
 class ContaAguaOut(Response):
