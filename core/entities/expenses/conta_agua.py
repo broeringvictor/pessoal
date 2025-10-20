@@ -69,11 +69,11 @@ class ContaAgua(Entity):
             val_vo = valor if isinstance(valor, Valor) else Valor.criar_de_bruto(valor)
             self.valor = val_vo.valor
 
-        self.registrar_atualizacao()
+        self.updated_at = datetime.now(timezone.utc)
         return self
 
-    def deletar(self) -> None:
-        self.registrar_exclusao()
+    def delete(self) -> None:
+        self.register_deletion()
 
     # ----------------- Consultas auxiliares -----------------
     def referencia_para_banco(self) -> date:

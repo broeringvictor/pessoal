@@ -1,108 +1,101 @@
-# core/entities/expenses/expense_variable_type.py
 from __future__ import annotations
 from dataclasses import dataclass
 from typing import Optional, Union
-
-# Assumindo que a classe Entity está em core.shared.entities
 from core.shared.entities import Entity
-from core.value_object import Descricao
+from core.value_object import Description
 
 
 @dataclass(slots=True, kw_only=True)
 class ExpenseVariableType(Entity):
     """
-    Entidade que representa um tipo/categoria de despesa variável.
-    Herda de Entity para gerenciamento de ID e timestamps.
+    Entity representing a variable expense category/type.
+    Inherits from Entity for ID and timestamps management.
     """
-    # Atributos específicos desta entidade
+    # Specific attributes of this entity
     name: str
-    description: Optional[Descricao] = None
+    description: Optional[Description] = None
     is_active: bool = True
 
-    # Sentinel para distinguir "não fornecido" de "fornecido como None" em patch
-    _NAO_FORNECIDO: classmethod = object()  # type: ignore[assignment]
+    # Sentinel to distinguish not-provided from explicit None in patch
+    _NOT_PROVIDED: object = object()
 
-    # ----------------- Utilidades internas -----------------
     @staticmethod
-    def _coagir_para_descricao(valor: Optional[Union[str, Descricao]]) -> Optional[Descricao]:
-        if valor is None:
+    def _coerce_description(value: object) -> Optional[Description]:
+        if value is None:
             return None
-        if isinstance(valor, Descricao):
-            return valor
-        if isinstance(valor, str):
-            return Descricao.criar_de_texto(valor)
-        raise TypeError("description deve ser str, Descricao ou None.")
+        if isinstance(value, Description):
+            return value
+        if isinstance(value, str):
+            return Description.criar_de_texto(value)
+        raise TypeError("description must be str, Description or None.")
 
-    # ----------------- Fábrica (Create) -----------------
+    # ----------------- Factory (Create) -----------------
     @classmethod
     def criar(
-            cls,
-            *,
-            name: str,
-            description: Optional[Union[str, Descricao]] = None,
-            is_active: bool = True,
+        cls,
+        *,
+        name: str,
+        description: Optional[Union[str, Description]] = None,
+        is_active: bool = True,
     ) -> "ExpenseVariableType":
-        """
-        Método de fábrica para criar uma nova instância de tipo de despesa.
-        """
-        descricao_vo = cls._coagir_para_descricao(description)
-        return cls(name=name, description=descricao_vo, is_active=is_active)
+        """Factory method to create a new variable expense type instance."""
+        description_vo = cls._coerce_description(description)
+        return cls(name=name, description=description_vo, is_active=is_active)
 
-    # ----------------- Atualização Completa (Update) -----------------
+    # ----------------- Full Update -----------------
     def atualizar(
-            self,
-            *,
-            name: str,
-            description: Optional[Union[str, Descricao]],
-            is_active: bool,
+        self,
+        *,
+        name: str,
+        description: Optional[Union[str, Description]],
+        is_active: bool,
     ) -> "ExpenseVariableType":
-        """Atualiza todos os campos da entidade."""
+        """Updates all fields of the entity."""
         self.name = name
-        self.description = self._coagir_para_descricao(description)
+        self.description = self._coerce_description(description)
         self.is_active = is_active
         self.registrar_atualizacao()
         return self
 
-    # ----------------- Atualização Parcial (Patch) -----------------
+    # ----------------- Partial Update (Patch) -----------------
     def patch(
-            self,
-            *,
-            name: Optional[str] = None,
-            description: object = _NAO_FORNECIDO,  # permite None explícito
-            is_active: Optional[bool] = None,
+        self,
+        *,
+        name: Optional[str] = None,
+        description: object = _NOT_PROVIDED,  # allows explicit None
+        is_active: Optional[bool] = None,
     ) -> "ExpenseVariableType":
-        """Atualiza apenas os campos fornecidos.
-        Para a descrição:
-        - omitido: mantém
-        - None: remove descrição
-        - str/Descricao: aplica VO
+        """Updates only the provided fields.
+        For description:
+        - omitted: keep
+        - None: remove description
+        - str/Description: apply VO
         """
-        houve_mudanca = False
+        changed = False
         if name is not None:
             self.name = name
-            houve_mudanca = True
-        # A descrição pode ser explicitamente definida como None
-        if description is not self._NAO_FORNECIDO:
-            self.description = self._coagir_para_descricao(description)  # type: ignore[arg-type]
-            houve_mudanca = True
+            changed = True
+        if description is not self._NOT_PROVIDED:
+            self.description = self._coerce_description(description)
+            changed = True
         if is_active is not None:
             self.is_active = is_active
-            houve_mudanca = True
+            changed = True
 
-        if houve_mudanca:
+        if changed:
             self.registrar_atualizacao()
 
         return self
 
-    # ----------------- Exclusão Lógica (Soft Delete) -----------------
-    def deletar(self) -> None:
-        """Realiza a exclusão lógica da entidade."""
+    # ----------------- Soft Delete -----------------
+    def delete(self) -> None:
+        """Performs soft deletion of the entity."""
         self.is_active = False
         self.registrar_exclusao()
 
-    # ----------------- Conversão para Dicionário -----------------
+    # ----------------- Serialization -----------------
     def to_dict(self) -> dict:
-        """Converte a entidade para um dicionário, útil para serialização (ex: JSON)."""
+        """Converts the entity to a serializable dict (e.g., JSON)."""
         return {
             "id": self.id,
             "name": self.name,

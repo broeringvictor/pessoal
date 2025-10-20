@@ -1,85 +1,96 @@
 from dataclasses import dataclass
-from decimal import Decimal
-from typing import Optional, Union
+from typing import Optional
+from abc import ABC, abstractmethod
 
 from core.shared.entities import Entity
-from core.value_object import Descricao, Valor, TipoDespesa
+from core.value_object import Description, MonetaryValue, ExpenseType
 
 
-@dataclass(slots=True, init=False)
-class Expense(Entity):
-    """Entidade de despesa genérica base para a hierarquia de despesas."""
-    description: Descricao
-    amount: Valor
-    expense_type: TipoDespesa
+@dataclass(slots=True, kw_only=True)
+class Expense(Entity, ABC):
+    """Abstract base entity for the expense hierarchy.
 
-    def __init__(
-        self,
-        *,
-        description: Descricao,
-        amount: Union[Valor, str, int, float, Decimal],
-        expense_type: TipoDespesa,
-    ) -> None:
-        self.description = description
-        self.amount = self._normalizar_valor(amount)
-        self.expense_type = expense_type
-        Entity.__post_init__(self)
+    - Must not be instantiated directly.
+    - Fields use strict Value Objects (no coercion here).
+    - Subclasses are responsible for factories that convert raw inputs into VOs.
+    """
 
-    @staticmethod
-    def _normalizar_valor(valor: Union[Valor, str, int, float, Decimal]) -> Valor:
-        # Converte dados brutos para VO Valor quando necessário
-        if isinstance(valor, Valor):
-            return valor
-        return Valor.criar_de_bruto(valor)
+    description: Description
+    amount: MonetaryValue
+    expense_type: ExpenseType
 
-    # ----------------- Fábrica (Create) -----------------
+    # ----------------- Factory (Create) -----------------
     @classmethod
+    @abstractmethod
     def criar(
         cls,
-        *,
-        description: Descricao,
-        amount: Union[Valor, str, int, float, Decimal],
-        expense_type: TipoDespesa,
+        *args,
+        **kwargs,
     ) -> "Expense":
-        return cls(description=description, amount=amount, expense_type=expense_type)
+        """Subclasses must implement context-specific factories."""
+        raise NotImplementedError
 
-    # ----------------- Atualização Completa (Update) -----------------
+    @classmethod
+    def create(
+        cls,
+        *,
+        description: Description,
+        amount: MonetaryValue,
+        expense_type: ExpenseType,
+        **kwargs,
+    ) -> "Expense":
+        """English alias that delegates to criar()."""
+        return cls.criar(description=description, amount=amount, expense_type=expense_type, **kwargs)
+
+    # ----------------- Full Update -----------------
     def atualizar(
         self,
         *,
-        description: Descricao,
-        amount: Union[Valor, str, int, float, Decimal],
-        expense_type: TipoDespesa,
+        description: Description,
+        amount: MonetaryValue,
+        expense_type: ExpenseType,
+        **kwargs,
     ) -> "Expense":
         self.description = description
-        self.amount = self._normalizar_valor(amount)
+        self.amount = amount
         self.expense_type = expense_type
         self.registrar_atualizacao()
         return self
 
-    # ----------------- Atualização Parcial (Patch) -----------------
+    def update(
+        self,
+        *,
+        description: Description,
+        amount: MonetaryValue,
+        expense_type: ExpenseType,
+        **kwargs,
+    ) -> "Expense":
+        """English alias that delegates to atualizar()."""
+        return self.atualizar(description=description, amount=amount, expense_type=expense_type, **kwargs)
+
+    # ----------------- Partial Update (Patch) -----------------
     def patch(
         self,
         *,
-        description: Optional[Descricao] = None,
-        amount: Optional[Union[Valor, str, int, float, Decimal]] = None,
-        expense_type: Optional[TipoDespesa] = None,
+        description: Optional[Description] = None,
+        amount: Optional[MonetaryValue] = None,
+        expense_type: Optional[ExpenseType] = None,
     ) -> "Expense":
-        houve_alteracao = False
+        changed = False
         if description is not None:
             self.description = description
-            houve_alteracao = True
+            changed = True
         if amount is not None:
-            self.amount = self._normalizar_valor(amount)
-            houve_alteracao = True
+            self.amount = amount
+            changed = True
         if expense_type is not None:
             self.expense_type = expense_type
-            houve_alteracao = True
+            changed = True
 
-        if houve_alteracao:
+        if changed:
             self.registrar_atualizacao()
         return self
 
-    # ----------------- Exclusão Lógica (Soft Delete) -----------------
-    def deletar(self) -> None:
-        self.registrar_exclusao()
+    # ----------------- Soft Delete -----------------
+    def delete(self) -> None:
+        self.register_deletion()

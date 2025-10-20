@@ -58,8 +58,8 @@ class ContaLuz(Entity):
         self.updated_at = datetime.now(timezone.utc)
         return self
 
-    def deletar(self) -> None:
-        self.deleted_at = datetime.now(timezone.utc)
+    def delete(self) -> None:
+        self.register_deletion()
 
     # ----------------- Consultas auxiliares --------------------------
     def valor_em_centavos(self) -> int:

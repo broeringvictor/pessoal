@@ -25,7 +25,7 @@ def test_deletar_define_deleted_at_e_flag():
     conta = ContaAgua.criar("08/2025", 10)
     assert conta.deleted_at is None
     assert not conta.is_deleted
-    conta.deletar()
+    conta.delete()
     assert conta.deleted_at is not None
     assert conta.is_deleted
 

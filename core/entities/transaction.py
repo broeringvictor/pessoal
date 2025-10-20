@@ -180,8 +180,8 @@ class Transaction(Entity):
         self.registrar_atualizacao()
 
     # CRUD - Deletar (soft delete)
-    def deletar(self) -> None:
-        """Marca a transação como deletada (soft delete)."""
+    def delete(self) -> None:
+        """Marks the transaction as deleted (soft delete)."""
         self.registrar_exclusao()
 
     # Mapeamento para persistência (Postgres-friendly)

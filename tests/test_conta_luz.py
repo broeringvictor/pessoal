@@ -20,11 +20,11 @@ def test_atualizar_mantem_normalizacao_e_define_updated_at():
     assert conta.updated_at is not None
 
 
-def test_deletar_define_deleted_at_e_flag():
+def test_delete_define_deleted_at_e_flag():
     conta = ContaLuz.criar("08/2025", 10)
     assert conta.deleted_at is None
     assert not conta.is_deleted
-    conta.deletar()
+    conta.delete()
     assert conta.deleted_at is not None
     assert conta.is_deleted
 

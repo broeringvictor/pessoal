@@ -1,29 +1,33 @@
-from datetime import datetime
-
 from core.entities.expenses.expense_variable import ExpenseVariable
 
 
 def test_expense_variable_updates_updated_at_on_changes():
-    # Cria uma despesa variável
-    despesa = ExpenseVariable.criar(
-        mes_referencia="09/2025",
-        valor=100,  # aceita int/float/str/Decimal ou VO Valor
+    # Create a variable expense using VO factories under the hood
+    expense = ExpenseVariable.criar(
+        description="Power Bill",
+        amount=100,  # raw is converted to MonetaryValue VO
+        expense_type=1,  # accepts code, name, or ExpenseType VO
+        event_date="01/09/2025",  # EventDate (DD/MM/YYYY)
     )
 
-    # Ao criar, updated_at deve ser None
-    assert despesa.updated_at is None
+    # On create, updated_at should be None
+    assert expense.updated_at is None
 
-    # Patch com alteração deve registrar atualização
-    despesa.patch(valor=200)
-    assert despesa.updated_at is not None
-    atualizado_apos_patch = despesa.updated_at
+    # Patch with change should register update
+    expense.patch(amount=200)
+    assert expense.updated_at is not None
+    updated_after_patch = expense.updated_at
 
-    # Patch sem alteração não deve mudar updated_at
-    despesa.patch()
-    assert despesa.updated_at == atualizado_apos_patch
+    # Patch without changes should not move updated_at
+    expense.patch()
+    assert expense.updated_at == updated_after_patch
 
-    # Update completo deve atualizar novamente
-    despesa.atualizar(mes_referencia="10/2025", valor=300)
-    assert despesa.updated_at is not None
-    assert despesa.updated_at >= atualizado_apos_patch
-
+    # Full update should update again
+    expense.atualizar(
+        description="Power Bill Updated",
+        amount=300,
+        expense_type="FIXA",
+        event_date="01/10/2025",
+    )
+    assert expense.updated_at is not None
+    assert expense.updated_at >= updated_after_patch

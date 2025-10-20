@@ -33,33 +33,33 @@ def _generate_uuid7() -> _uuid.UUID:
 
 @dataclass(kw_only=True)
 class Entity:
-    """Entidade base: gera UUIDv7 e created_at (UTC) automaticamente ao instanciar."""
+    """Base entity: generates UUIDv7 and created_at (UTC) automatically on instantiation."""
 
-    # Identidade baseada em tempo (UUIDv7)
+    # Time-based identity (UUIDv7)
     id: _uuid.UUID = field(init=False, default_factory=_generate_uuid7)
 
-    # Auditoria básica
+    # Basic auditing
     created_at: datetime = field(init=False, default_factory=lambda: datetime.now(timezone.utc))
     updated_at: Optional[datetime] = field(default=None, init=False)
     deleted_at: Optional[datetime] = field(default=None, init=False)
 
-    # Campos reservados
+    # Reserved fields
     _RESERVED: ClassVar[frozenset[str]] = frozenset(
         {"id", "created_at", "updated_at", "deleted_at"}
     )
 
     def __post_init__(self) -> None:
-        # Garante inicialização mesmo quando subclasses definem __init__ customizado
+        # Ensure initialization even when subclasses define custom __init__
         if not isinstance(getattr(self, "id", None), _uuid.UUID):
             self.id = _generate_uuid7()
         if getattr(self, "created_at", None) is None:
             self.created_at = datetime.now(timezone.utc)
 
-    # O restante da classe permanece o mesmo...
     @property
     def is_deleted(self) -> bool:
         return self.deleted_at is not None
 
+    # Portuguese legacy methods (kept for compatibility)
     def registrar_atualizacao(self) -> None:
         self.updated_at = datetime.now(timezone.utc)
 
@@ -69,3 +69,13 @@ class Entity:
     def restaurar_exclusao(self) -> None:
         self.deleted_at = None
         self.updated_at = datetime.now(timezone.utc)
+
+    # English aliases (preferred going forward)
+    def register_update(self) -> None:
+        self.registrar_atualizacao()
+
+    def register_deletion(self) -> None:
+        self.registrar_exclusao()
+
+    def restore_deletion(self) -> None:
+        self.restaurar_exclusao()
