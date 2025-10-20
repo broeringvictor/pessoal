@@ -9,7 +9,7 @@ from core.value_object import (
     Valor,
     Descricao,
     TransactionType,
-    DataEvento,
+    EventoData,
 )
 
 
@@ -21,7 +21,7 @@ class Transaction(Entity):
     """
 
     descricao: Descricao 
-    data_evento: DataEvento
+    data_evento: EventoData
     valor: Valor  # Removida opcionalidade
     tipo: TransactionType = field(
         default_factory=lambda: TransactionType.criar_de_nome("ENTRADA")
@@ -31,7 +31,7 @@ class Transaction(Entity):
         self,
         *,
         descricao: Descricao,
-        data_evento: DataEvento,
+        data_evento: EventoData,
         valor: Valor,  # Não é mais opcional
         tipo: TransactionType
     ) -> None:
@@ -54,7 +54,7 @@ class Transaction(Entity):
     ) -> "Transaction":
         
         descricao_vo = Descricao.criar_de_texto(descricao)
-        data_vo = DataEvento.criar_de_texto(texto_data_evento)
+        data_vo = EventoData.criar_de_texto(texto_data_evento)
         valor_vo = valor_monetario if isinstance(valor_monetario, Valor) else Valor.criar_de_bruto(valor_monetario)
         tipo_vo = (
             tipo
@@ -86,9 +86,9 @@ class Transaction(Entity):
     ) -> "Transaction":
         # Data Evento
         vo_data = (
-            DataEvento.criar_de_texto(data_evento)
+            EventoData.criar_de_texto(data_evento)
             if isinstance(data_evento, str)
-            else DataEvento.criar_de_data(data_evento)
+            else EventoData.criar_de_data(data_evento)
         )
 
         # Descrição
@@ -131,7 +131,7 @@ class Transaction(Entity):
     ) -> None:
         """Atualiza todos os campos da transação."""
         self.descricao = Descricao.criar_de_texto(descricao_transacao)
-        self.data_evento = DataEvento.criar_de_texto(texto_data_evento)
+        self.data_evento = EventoData.criar_de_texto(texto_data_evento)
         self.valor = (
             valor_monetario
             if isinstance(valor_monetario, Valor)
@@ -161,7 +161,7 @@ class Transaction(Entity):
             self.descricao = Descricao.criar_de_texto(descricao)
         
         if texto_data_evento is not None:
-            self.data_evento = DataEvento.criar_de_texto(texto_data_evento)
+            self.data_evento = EventoData.criar_de_texto(texto_data_evento)
         
         if valor_monetario is not None:
             self.valor = (

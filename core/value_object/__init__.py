@@ -3,7 +3,7 @@ from .descricao import Descricao
 from .mes_referencia import MesReferencia
 from .transaction_type import TransactionType
 from .valor import Valor
-from .evento_data import DataEvento
+from .evento_data import EventoData
 from .tipo_despesa import TipoDespesa
 
 __all__ = [
@@ -14,6 +14,6 @@ __all__ = [
     "Valor",
     "Descricao",
     "TransactionType",
-    "DataEvento",
+    "EventoData",
     "TipoDespesa",
 ]

@@ -6,7 +6,7 @@ from typing import Union
 from core.shared.value_objects.normalizar_data import NormalizarData
 
 
-class DataEvento(NormalizarData):
+class EventoData(NormalizarData):
     """Domain Value Object for the calendar date of an Entrada.
 
     - Inherits validation and normalization (DD/MM/YYYY) from NormalizarData.
@@ -19,7 +19,7 @@ class DataEvento(NormalizarData):
         )
 
     @classmethod
-    def _criar_interno(cls, texto: str) -> "DataEvento":
+    def _criar_interno(cls, texto: str) -> "EventoData":
         base = NormalizarData(texto)
         instancia = object.__new__(cls)
         # Copy normalized state from base Value Object
@@ -32,11 +32,11 @@ class DataEvento(NormalizarData):
 
     # Declarative factories
     @classmethod
-    def criar_de_texto(cls, texto: str) -> "DataEvento":
+    def criar_de_texto(cls, texto: str) -> "EventoData":
         return cls._criar_interno(texto)
 
     @classmethod
-    def criar_de_data(cls, valor_data: Union[date, datetime]) -> "DataEvento":
+    def criar_de_data(cls, valor_data: Union[date, datetime]) -> "EventoData":
         return cls._criar_interno(f"{valor_data.day:02d}/{valor_data.month:02d}/{valor_data.year}")
 
     # Persistence helpers
@@ -53,7 +53,7 @@ class DataEvento(NormalizarData):
         """Return normalized DD/MM/YYYY used in the domain."""
         return self.data
 
-    def atualizar_data(self, novo_texto: str) -> "DataEvento":
+    def atualizar_data(self, novo_texto: str) -> "EventoData":
         """Return a new VO with updated date from raw text."""
         return type(self)._criar_interno(novo_texto)
 

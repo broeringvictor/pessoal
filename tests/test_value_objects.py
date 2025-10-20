@@ -4,7 +4,7 @@ from datetime import date, datetime
 
 from core.shared.value_objects import ReferenciaMensal, ValorMonetario
 from core.shared.value_objects.normalizar_data import NormalizarData
-from core.value_object.evento_data import DataEvento
+from core.value_object.evento_data import EventoData
 from core.entradas.entrada_entidade import Entrada
 
 
@@ -72,7 +72,7 @@ def test_normalizar_data_rejeita_entradas_invalidas(texto_invalido):
 
 
 def test_data_entrada_criacao_e_persistencia():
-    entrada = DataEvento.criar_de_texto(" 1/9/2025 ")
+    entrada = EventoData.criar_de_texto(" 1/9/2025 ")
     assert entrada.como_texto() == "01/09/2025"
     assert entrada.como_iso() == "2025-09-01"
     assert entrada.para_banco() == date(2025, 9, 1)
@@ -85,7 +85,7 @@ def test_data_entrada_criacao_e_persistencia():
 
 
 def test_data_entrada_criacao_de_datetime():
-    entrada = DataEvento.criar_de_data(datetime(2024, 2, 29, 12, 30))
+    entrada = EventoData.criar_de_data(datetime(2024, 2, 29, 12, 30))
     assert entrada.como_texto() == "29/02/2024"
     assert entrada.como_iso() == "2024-02-29"
     assert entrada.para_banco() == date(2024, 2, 29)
@@ -102,7 +102,7 @@ def test_data_entrada_criacao_de_datetime():
 )
 def test_data_entrada_rejeita_entradas_invalidas(texto_invalido):
     with pytest.raises(ValueError):
-        DataEvento.criar_de_texto(texto_invalido)
+        EventoData.criar_de_texto(texto_invalido)
 
 
 def test_entrada_criacao_e_mapeamento_para_banco():
@@ -113,7 +113,7 @@ def test_entrada_criacao_e_mapeamento_para_banco():
         valor_monetario=ValorMonetario.from_centavos(123456),
     )
 
-    assert isinstance(entrada.data_evento, DataEvento)
+    assert isinstance(entrada.data_evento, EventoData)
     assert entrada.data_evento.como_texto() == "01/09/2025"
     assert isinstance(entrada.mes_referencia, ReferenciaMensal)
     assert entrada.mes_referencia.referencia == "09/2025"
